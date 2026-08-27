@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Repérage local des nouveaux établissements sportifs de Côte-d'Or.">
+  <title>Veille Sports 21</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true">21</div>
+    <div>
+      <p class="eyebrow">Service de contrôle</p>
+      <h1>Veille Sports 21</h1>
+    </div>
+    <span class="local-badge">Données locales</span>
+  </header>
+
+  <main>
+    <section class="hero card">
+      <div>
+        <p class="eyebrow">Côte-d'Or</p>
+        <h2>Repérer les nouvelles structures sportives</h2>
+        <p class="hero-copy">Interrogez les données publiques, puis qualifiez les établissements et associations à examiner.</p>
+      </div>
+      <button id="search-button" class="primary-button" type="button">
+        <span aria-hidden="true">↻</span> Rechercher les nouveautés
+      </button>
+    </section>
+
+    <section class="status-grid" aria-label="État de la veille">
+      <article class="metric card">
+        <span class="metric-label">Dernière recherche réussie</span>
+        <strong id="last-sync">Jamais</strong>
+      </article>
+      <article class="metric card">
+        <span class="metric-label">Nouvelles structures</span>
+        <strong id="new-count">0</strong>
+      </article>
+      <article class="metric card">
+        <span class="metric-label">À qualifier</span>
+        <strong id="pending-count">0</strong>
+      </article>
+    </section>
+
+    <section id="message" class="message" hidden role="status"></section>
+
+    <section class="card results-card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Résultats</p>
+          <h2>Structures détectées</h2>
+        </div>
+        <div class="actions">
+          <label class="search-field">
+            <span class="sr-only">Filtrer la liste</span>
+            <input id="filter-input" type="search" placeholder="Nom, commune, SIRET…">
+          </label>
+          <button id="rna-button" class="secondary-button" type="button">Importer un fichier RNA</button>
+          <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
+          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
+        </div>
+      </div>
+
+      <aside class="confidence-note" aria-labelledby="confidence-title">
+        <div class="confidence-icon" aria-hidden="true">i</div>
+        <div>
+          <h3 id="confidence-title">Comment est déterminé le niveau de confiance&nbsp;?</h3>
+          <p>Ce niveau est un <strong>indice de pertinence automatique</strong>, et non une qualification juridique ni une décision de contrôle.</p>
+          <ul>
+            <li><span class="priority high">Élevée</span> l'activité principale déclarée relève directement du sport&nbsp;: gestion d'installations, club, centre de culture physique ou autre activité sportive (codes NAF 93.11Z à 93.19Z).</li>
+            <li><span class="priority medium">Moyenne</span> l'activité déclarée est l'enseignement d'une discipline sportive ou de loisir (code NAF 85.51Z), qui peut aussi couvrir des activités hors du périmètre de contrôle.</li>
+          </ul>
+          <p class="confidence-warning"><strong>À vérifier par l'agent&nbsp;:</strong> le code NAF est déclaratif et décrit l'activité principale. Pour une association, l'adresse connue peut être celle du siège et non celle du lieu de pratique.</p>
+        </div>
+      </aside>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Niveau de confiance</th>
+              <th>Structure</th>
+              <th>Commune</th>
+              <th>Activité</th>
+              <th>Création</th>
+              <th>Décision</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state">
+          <div aria-hidden="true" class="empty-icon">⌕</div>
+          <h3>Aucune recherche pour le moment</h3>
+          <p>Lancez la recherche pour consulter les structures nouvellement détectées.</p>
+        </div>
+      </div>
+    </section>
+
+    <details class="card settings-card">
+      <summary>Paramètres de la recherche</summary>
+      <div class="settings-grid">
+        <label>Rechercher depuis
+          <input id="since-input" type="date">
+        </label>
+        <label>Département
+          <input value="21 — Côte-d'Or" disabled>
+        </label>
+      </div>
+      <p class="help">La première recherche remonte par défaut sur 30 jours. Les suivantes reprennent cinq jours avant la dernière recherche afin d'éviter les oublis ; les doublons sont supprimés.</p>
+      <p class="help"><strong>Associations RNA&nbsp;:</strong> téléchargez un export CSV officiel du Répertoire national des associations, puis utilisez «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations de Côte-d'Or dont le titre ou l'objet contient un indice sportif sont ajoutées.</p>
+    </details>
+  </main>
+
+  <footer>
+    <span>Veille Sports 21 — prototype sans installation</span>
+    <span>Source : API Recherche d'entreprises</span>
+  </footer>
+
+  <!-- Script classique volontairement : un module ES est bloqué par Chrome lorsque
+       l'application est ouverte directement avec le protocole file://. -->
+  <script src="app.js"></script>
+</body>
+</html>
