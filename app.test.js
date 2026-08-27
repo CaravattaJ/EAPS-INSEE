@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deduplicate, defaultSince, extractItems, isAfter, normalizeResult } from "./app.js";
+import "./app.js";
+
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");

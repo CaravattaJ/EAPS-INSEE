@@ -3,17 +3,17 @@ const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z"];
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 
-export function defaultSince(today = new Date()) {
+function defaultSince(today = new Date()) {
   const date = new Date(today);
   date.setDate(date.getDate() - 30);
   return date.toISOString().slice(0, 10);
 }
 
-export function isAfter(date, since) {
+function isAfter(date, since) {
   return Boolean(date) && date.slice(0, 10) >= since;
 }
 
-export function normalizeResult(result, establishment, code) {
+function normalizeResult(result, establishment, code) {
   const siege = result.siege || {};
   const item = establishment || siege;
   const address = item.adresse || item;
@@ -32,7 +32,7 @@ export function normalizeResult(result, establishment, code) {
   };
 }
 
-export function extractItems(payload, code, since) {
+function extractItems(payload, code, since) {
   const items = [];
   for (const result of payload.results || []) {
     const matches = result.matching_etablissements?.length ? result.matching_etablissements : [result.siege];
@@ -44,7 +44,7 @@ export function extractItems(payload, code, since) {
   return items;
 }
 
-export function deduplicate(items) {
+function deduplicate(items) {
   return [...new Map(items.filter(item => item.siret).map(item => [item.siret, item])).values()];
 }
 
@@ -119,6 +119,13 @@ function exportCsv(items) {
   link.click();
   URL.revokeObjectURL(link.href);
 }
+
+// Expose uniquement les fonctions pures nécessaires aux tests. L'utilisation de
+// globalThis conserve un script classique compatible avec une ouverture file://,
+// tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
+Object.assign(globalThis, {
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate }
+});
 
 if (typeof document !== "undefined") {
   const state = loadState();

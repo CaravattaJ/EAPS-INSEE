@@ -102,6 +102,8 @@
     <span>Source : API Recherche d'entreprises</span>
   </footer>
 
-  <script type="module" src="app.js"></script>
+  <!-- Script classique volontairement : un module ES est bloqué par Chrome lorsque
+       l'application est ouverte directement avec le protocole file://. -->
+  <script src="app.js"></script>
 </body>
 </html>
