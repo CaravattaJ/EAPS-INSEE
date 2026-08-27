@@ -22,7 +22,11 @@
       <div>
         <p class="eyebrow">Côte-d'Or</p>
         <h2>Repérer les nouvelles structures sportives</h2>
-        <p class="hero-copy">Interrogez les données publiques, puis qualifiez les établissements et associations à examiner.</p>
+        <p class="hero-copy">Lancez une recherche, puis regardez les établissements et associations à examiner.</p>
+        <label class="since-field">
+          <span>Chercher les structures créées depuis le</span>
+          <input id="since-input" type="date">
+        </label>
       </div>
       <button id="search-button" class="primary-button" type="button">
         <span aria-hidden="true">↻</span> Rechercher les nouveautés
@@ -44,6 +48,8 @@
       </article>
     </section>
 
+    <section id="stale-sync-warning" class="message error" hidden role="status">Ça fait plus de 10 jours que vous n'avez pas relancé une recherche. Relancez-la pour ne rien manquer.</section>
+    <section id="stale-rna-warning" class="message error" hidden role="status">Ça fait plus de 10 jours que vous n'avez pas importé un fichier RNA à jour. Téléchargez-en un nouveau et importez-le.</section>
     <section id="message" class="message" hidden role="status"></section>
 
     <section class="card results-card">
@@ -59,7 +65,7 @@
           </label>
           <button id="rna-button" class="secondary-button" type="button">Importer un fichier RNA</button>
           <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
-          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
+          <button id="export-button" class="secondary-button" type="button">Sauvegarder la liste (fichier daté)</button>
         </div>
       </div>
 
@@ -69,8 +75,9 @@
           <h3 id="confidence-title">Comment est déterminé le niveau de confiance&nbsp;?</h3>
           <p>Ce niveau est un <strong>indice de pertinence automatique</strong>, et non une qualification juridique ni une décision de contrôle.</p>
           <ul>
-            <li><span class="priority high">Élevée</span> l'activité principale déclarée relève directement du sport&nbsp;: gestion d'installations, club, centre de culture physique ou autre activité sportive (codes NAF 93.11Z à 93.19Z).</li>
-            <li><span class="priority medium">Moyenne</span> l'activité déclarée est l'enseignement d'une discipline sportive ou de loisir (code NAF 85.51Z), qui peut aussi couvrir des activités hors du périmètre de contrôle.</li>
+            <li><span class="priority high">Élevée</span> l'activité déclarée relève directement du sport (gestion d'installations, club, centre de culture physique...), ou l'association a déclaré un objet social sportif reconnu.</li>
+            <li><span class="priority medium">Moyenne</span> l'activité déclarée est l'enseignement d'une discipline sportive ou de loisir, qui peut aussi couvrir des activités hors du périmètre de contrôle ; ou le nom/l'objet contient un mot évoquant le sport.</li>
+            <li><span class="priority low">Faible</span> aucun signe sportif net n'a été trouvé automatiquement (activité résiduelle, ou objet non renseigné), mais la structure correspond aux autres critères (lieu, date). À vérifier par vous-même avant d'écarter.</li>
           </ul>
           <p class="confidence-warning"><strong>À vérifier par l'agent&nbsp;:</strong> le code NAF est déclaratif et décrit l'activité principale. Pour une association, l'adresse connue peut être celle du siège et non celle du lieu de pratique.</p>
         </div>
@@ -99,17 +106,15 @@
     </section>
 
     <details class="card settings-card">
-      <summary>Paramètres de la recherche</summary>
+      <summary>En savoir plus sur la recherche</summary>
       <div class="settings-grid">
-        <label>Rechercher depuis
-          <input id="since-input" type="date">
-        </label>
         <label>Département
           <input value="21 — Côte-d'Or" disabled>
         </label>
       </div>
-      <p class="help">La première recherche remonte par défaut sur 30 jours. Les suivantes reprennent cinq jours avant la dernière recherche afin d'éviter les oublis ; les doublons sont supprimés.</p>
-      <p class="help"><strong>Associations RNA&nbsp;:</strong> téléchargez un export CSV officiel du Répertoire national des associations, puis utilisez «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations de Côte-d'Or dont le titre ou l'objet contient un indice sportif sont ajoutées.</p>
+      <p class="help">La première recherche remonte par défaut sur 30 jours. Ensuite, chaque nouvelle recherche revérifie aussi les 15 derniers jours avant la date affichée : certaines structures mettent du temps à apparaître dans les données publiques, cela évite de les manquer. Les doublons sont automatiquement retirés.</p>
+      <p class="help">En plus des activités sportives connues, une recherche complémentaire est faite sur les noms d'entreprise contenant le mot « sport », pour rattraper les structures mal classées.</p>
+      <p class="help"><strong>Associations (fichier RNA)&nbsp;:</strong> téléchargez un export CSV officiel du Répertoire national des associations, puis utilisez «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations de Côte-d'Or correspondant à la période sont ajoutées, classées par niveau de confiance.</p>
     </details>
   </main>
 
