@@ -23,12 +23,12 @@ L'application appelle l'API publique Recherche d'entreprises depuis le navigateu
 - recouvrement de cinq jours après une synchronisation ;
 - appels API séquentiels et nouvelle tentative automatique lorsque la source répond `429` ;
 - détection des associations lorsque l'information est fournie par l'API ;
-- import local d'un export CSV du RNA, filtré sur la Côte-d'Or, la période, l'absence de dissolution et des mots-clés sportifs dans le titre ou l'objet ;
+- import local d'un export CSV du RNA, filtré sur la Côte-d'Or, la période, l'absence de dissolution, la famille WALDEC `011` « sports et activités de plein air » et des mots-clés sportifs complémentaires ;
 - qualification locale et export CSV.
 
-Le niveau de confiance affiché est un indice de pertinence : il est élevé pour les codes NAF directement sportifs (`93.11Z` à `93.19Z`) et moyen pour l'enseignement sportif ou de loisir (`85.51Z`). Il ne remplace jamais la qualification de l'agent.
+Le niveau de confiance affiché est un indice de pertinence : il est élevé pour les codes NAF directement sportifs (`93.11Z` à `93.19Z`) et pour une catégorie WALDEC commençant par `011`; il est moyen pour l'enseignement sportif ou de loisir (`85.51Z`) et pour une détection RNA reposant uniquement sur un mot-clé. Il ne remplace jamais la qualification de l'agent.
 
-L'import RNA accepte les noms de colonnes courants des exports officiels (`id`, `titre`, `objet`, `date_creat`, `date_disso`, `adrs_codepostal`, `adrs_libcommune`). Le fichier sélectionné est traité par le navigateur et n'est envoyé à aucun serveur. L'adresse du siège d'une association ne doit pas être assimilée automatiquement à un lieu de pratique.
+L'import RNA accepte les noms de colonnes courants des exports officiels (`id`, `titre`, `objet`, `objet_social1`, `objet_social2`, `date_creat`, `date_disso`, `adrs_codepostal`, `adrs_libcommune`). Les codes WALDEC sont conservés sur six chiffres, même si un tableur a supprimé leur zéro initial. Le fichier sélectionné est traité par le navigateur et n'est envoyé à aucun serveur. L'adresse du siège d'une association ne doit pas être assimilée automatiquement à un lieu de pratique.
 
 ## Tests
 

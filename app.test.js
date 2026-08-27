@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractWaldecCodes, extractRnaItems } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -80,4 +80,21 @@ test("extracts active sports associations in Côte-d'Or from RNA CSV", () => {
   assert.equal(items.length, 1);
   assert.equal(items[0].rna, "W212345678");
   assert.equal(items[0].source, "RNA");
+});
+
+test("normalizes WALDEC codes even when a spreadsheet removed the leading zero", () => {
+  assert.deepEqual(extractWaldecCodes("011065", "11090"), ["011065", "011090"]);
+});
+
+test("uses the WALDEC 011 family to detect sports associations without keywords", () => {
+  const csv = [
+    "id;titre;objet;objet_social1;objet_social2;date_creat;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345690;Les amis du ballon rond;;011000;011065;12/08/2026;;21000;DIJON",
+    "W212345691;Association culturelle;;006000;;12/08/2026;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].rna, "W212345690");
+  assert.equal(items[0].priority, "Élevée");
+  assert.match(items[0].reason, /011000, 011065/);
 });

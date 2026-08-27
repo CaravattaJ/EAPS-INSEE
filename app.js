@@ -4,6 +4,7 @@ const STORAGE_KEY = "veille-sports-21-state-v1";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
 const MAX_RETRIES = 4;
+const WALDEC_SPORT_PREFIX = "011";
 const SPORT_KEYWORDS = [
   "sport", "football", "futsal", "rugby", "handball", "basket", "volley", "judo", "karate", "karaté",
   "aikido", "aïkido", "boxe", "gymnastique", "fitness", "musculation", "natation", "plongee", "plongée",
@@ -106,6 +107,17 @@ function normalizeRnaDate(value) {
   return (value || "").slice(0, 10);
 }
 
+function extractWaldecCodes(...values) {
+  const codes = [];
+  for (const value of values) {
+    for (const rawCode of String(value || "").match(/\d+/g) || []) {
+      const code = rawCode.replace(/^0+(?=\d)/, "").padStart(6, "0").slice(-6);
+      if (!codes.includes(code)) codes.push(code);
+    }
+  }
+  return codes;
+}
+
 function extractRnaItems(text, since) {
   const delimiter = (text.split(/\r?\n/, 1)[0].match(/;/g) || []).length >= (text.split(/\r?\n/, 1)[0].match(/,/g) || []).length ? ";" : ",";
   const rows = parseDelimited(text.replace(/^\uFEFF/, ""), delimiter);
@@ -113,12 +125,20 @@ function extractRnaItems(text, since) {
   const headers = rows.shift().map(value => normalizeText(value.trim()));
   return deduplicate(rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]))).map(record => {
     const title = firstValue(record, ["titre", "titre_court", "nom"]);
-    const object = firstValue(record, ["objet", "objet_social", "objet_social1"]);
+    const object = firstValue(record, ["objet", "objet_libelle", "objet_texte"]);
+    const waldecCodes = extractWaldecCodes(
+      firstValue(record, ["objet_social1", "objet_social_1"]),
+      firstValue(record, ["objet_social2", "objet_social_2"])
+    );
+    const sportsWaldecCodes = waldecCodes.filter(code => code.startsWith(WALDEC_SPORT_PREFIX));
     const keywords = findSportKeywords(`${title} ${object}`);
     const creationDate = normalizeRnaDate(firstValue(record, ["date_creat", "date_creation", "date_decla", "date_declaration"]));
     const postalCode = firstValue(record, ["adrs_codepostal", "code_postal", "codepostal"]);
     const dissolution = firstValue(record, ["date_disso", "date_dissolution"]);
-    if (!keywords.length || !postalCode.startsWith("21") || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
+    if ((!keywords.length && !sportsWaldecCodes.length) || !postalCode.startsWith("21") || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
+    const reasons = [];
+    if (sportsWaldecCodes.length) reasons.push(`Nomenclature WALDEC sport : ${sportsWaldecCodes.join(", ")}`);
+    if (keywords.length) reasons.push(`Mot(s)-clé(s) : ${keywords.join(", ")}`);
     return {
       siret: firstValue(record, ["siret"]),
       siren: "",
@@ -126,13 +146,13 @@ function extractRnaItems(text, since) {
       name: title || "Association sans titre",
       commune: firstValue(record, ["adrs_libcommune", "libelle_commune", "commune"]) || "Non renseignée",
       postalCode,
-      activity: "Objet associatif sportif",
+      activity: sportsWaldecCodes.length ? "Sports et activités de plein air (WALDEC 011)" : "Objet associatif sportif",
       creationDate,
       association: true,
       object,
-      reason: `Mot(s)-clé(s) : ${keywords.join(", ")}`,
+      reason: reasons.join(" · "),
       source: "RNA",
-      priority: "Moyenne",
+      priority: sportsWaldecCodes.length ? "Élevée" : "Moyenne",
       decision: "À qualifier"
     };
   }).filter(item => item && (item.rna || item.siret)));
@@ -238,7 +258,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractWaldecCodes, extractRnaItems }
 });
 
 if (typeof document !== "undefined") {
