@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -56,4 +56,28 @@ test("stops retrying after repeated rate limits", async () => {
     /erreur 429/
   );
   assert.equal(calls, 5);
+});
+
+test("parses quoted CSV fields", () => {
+  assert.deepEqual(parseDelimited('id;titre;objet\r\nW21;"Club; test";"Pratique du judo"'), [
+    ["id", "titre", "objet"], ["W21", "Club; test", "Pratique du judo"]
+  ]);
+});
+
+test("finds sports keywords without depending on accents", () => {
+  assert.deepEqual(findSportKeywords("Pratique de l'equitation et de la randonnée"), ["equitation", "randonnee"]);
+});
+
+test("extracts active sports associations in Côte-d'Or from RNA CSV", () => {
+  const csv = [
+    "id;titre;objet;date_creat;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345678;Judo Dijon;Pratique du judo;12/08/2026;;21000;DIJON",
+    "W212345679;Culture Dijon;Promotion de la lecture;12/08/2026;;21000;DIJON",
+    "W212345680;Football Paris;Pratique du football;12/08/2026;;75000;PARIS",
+    "W212345681;Ancien tennis;Pratique du tennis;12/08/2026;15/08/2026;21200;BEAUNE"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].rna, "W212345678");
+  assert.equal(items[0].source, "RNA");
 });
