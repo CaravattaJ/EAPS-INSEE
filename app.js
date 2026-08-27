@@ -2,6 +2,12 @@ const API_BASE = "https://recherche-entreprises.api.gouv.fr/search";
 const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z"];
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
+const REQUEST_DELAY_MS = 900;
+const MAX_RETRIES = 4;
+
+function wait(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
 
 function defaultSince(today = new Date()) {
   const date = new Date(today);
@@ -60,18 +66,42 @@ function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-async function fetchCode(code, since) {
+async function requestWithRetry(url, fetchImplementation = fetch, waitImplementation = wait) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    const response = await fetchImplementation(url);
+    if (response.status !== 429) return response;
+    if (attempt === MAX_RETRIES) break;
+
+    const retryAfter = Number(response.headers?.get?.("Retry-After"));
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : Math.min(2000 * (2 ** attempt), 30000);
+    await waitImplementation(delay);
+  }
+  throw new Error("L'API limite temporairement les recherches (erreur 429). Attendez une minute puis réessayez");
+}
+
+async function fetchCode(code, since, onProgress = () => {}) {
   const items = [];
   let page = 1;
   let pages = 1;
   do {
-    const params = new URLSearchParams({ departement: "21", activite_principale: code, etat_administratif: "A", per_page: "25", page: String(page) });
-    const response = await fetch(`${API_BASE}?${params}`);
+    onProgress(code, page, pages);
+    const params = new URLSearchParams({
+      departement: "21",
+      activite_principale: code,
+      etat_administratif: "A",
+      date_creation_min: since,
+      per_page: "25",
+      page: String(page)
+    });
+    const response = await requestWithRetry(`${API_BASE}?${params}`);
     if (!response.ok) throw new Error(`La source a répondu ${response.status}`);
     const payload = await response.json();
     items.push(...extractItems(payload, code, since));
     pages = Math.min(Number(payload.total_pages || 1), 20);
     page += 1;
+    if (page <= pages) await wait(REQUEST_DELAY_MS);
   } while (page <= pages);
   return items;
 }
@@ -124,7 +154,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry }
 });
 
 if (typeof document !== "undefined") {
@@ -139,7 +169,14 @@ if (typeof document !== "undefined") {
     button.textContent = "Recherche en cours…";
     showMessage("Consultation des activités sportives en Côte-d'Or…");
     try {
-      const batches = await Promise.all(SPORTS_CODES.map(code => fetchCode(code, sinceInput.value)));
+      const batches = [];
+      for (const [index, code] of SPORTS_CODES.entries()) {
+        button.textContent = `Recherche ${index + 1}/${SPORTS_CODES.length} — ${code}…`;
+        batches.push(await fetchCode(code, sinceInput.value, (_activity, page, pages) => {
+          if (pages > 1) button.textContent = `Recherche ${index + 1}/${SPORTS_CODES.length} — ${code}, page ${page}/${pages}…`;
+        }));
+        if (index < SPORTS_CODES.length - 1) await wait(REQUEST_DELAY_MS);
+      }
       const previous = new Map(state.items.map(item => [item.siret, item]));
       state.items = deduplicate(batches.flat()).map(item => ({ ...item, decision: previous.get(item.siret)?.decision || item.decision }));
       state.lastSync = new Date().toISOString();

@@ -19,6 +19,7 @@ L'application appelle l'API publique Recherche d'entreprises depuis le navigateu
 - activités NAF `93.11Z`, `93.12Z`, `93.13Z`, `93.19Z` et `85.51Z` ;
 - reprise sur trente jours au premier lancement ;
 - recouvrement de cinq jours après une synchronisation ;
+- appels API séquentiels et nouvelle tentative automatique lorsque la source répond `429` ;
 - détection des associations lorsque l'information est fournie par l'API ;
 - qualification locale et export CSV.
 

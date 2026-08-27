@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -31,4 +31,29 @@ test("extracts recent Côte-d'Or establishments only", () => {
 
 test("deduplicates establishments by SIRET", () => {
   assert.equal(deduplicate([{ siret: "1" }, { siret: "1" }, { siret: "2" }]).length, 2);
+});
+
+test("retries a rate-limited request after the requested delay", async () => {
+  const statuses = [429, 200];
+  const waits = [];
+  const response = await requestWithRetry(
+    "https://example.test",
+    async () => ({ status: statuses.shift(), headers: { get: () => "3" } }),
+    async delay => waits.push(delay)
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(waits, [3000]);
+});
+
+test("stops retrying after repeated rate limits", async () => {
+  let calls = 0;
+  await assert.rejects(
+    requestWithRetry(
+      "https://example.test",
+      async () => { calls += 1; return { status: 429, headers: { get: () => null } }; },
+      async () => {}
+    ),
+    /erreur 429/
+  );
+  assert.equal(calls, 5);
 });
