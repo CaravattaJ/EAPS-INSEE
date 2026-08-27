@@ -72,6 +72,8 @@ main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 48px; }
 .eyebrow { margin: 0; color: var(--blue-dark); font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 h2 { margin: 7px 0 0; font-size: clamp(1.4rem, 3vw, 2rem); color: var(--navy); }
 .hero-copy { max-width: 670px; margin: 10px 0 0; color: var(--muted); line-height: 1.55; }
+.since-field { display: grid; gap: 7px; margin-top: 16px; max-width: 280px; color: #475169; font-size: .86rem; font-weight: 650; }
+.since-field input { min-height: 44px; padding: 0 13px; border: 1px solid #c8cfdd; border-radius: 8px; background: white; color: var(--text); }
 
 .primary-button, .secondary-button {
   min-height: 44px;
@@ -144,6 +146,8 @@ tbody tr:hover { background: #fbfcff; }
 .priority { display: inline-block; padding: 5px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
 .priority.high { background: #ffebe9; color: var(--red); }
 .priority.medium { background: #fff4d6; color: var(--amber); }
+.priority.low { background: #eef1f6; color: var(--muted); }
+.duplicate-flag { display: block; margin-top: 3px; color: var(--amber); font-size: .78rem; font-weight: 700; }
 .decision-select { max-width: 155px; padding: 8px; border: 1px solid #c8cfdd; border-radius: 7px; background: white; }
 .empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
 .empty-state h3 { margin: 8px 0 6px; color: var(--navy); }
@@ -166,6 +170,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
   .status-grid { grid-template-columns: 1fr; }
   .actions { flex-direction: column; }
   .search-field input { width: 100%; }
+  .since-field { max-width: none; }
   .settings-grid { grid-template-columns: 1fr; }
   footer { flex-direction: column; }
 }
