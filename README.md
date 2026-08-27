@@ -6,6 +6,8 @@ Prototype sans installation et sans dépendance npm pour repérer les établisse
 
 Sous Windows, double-cliquer sur `ouvrir-veille-sports.bat`. Il est également possible d'ouvrir directement `index.html` dans un navigateur récent. Aucun droit administrateur et aucune installation ne sont nécessaires.
 
+`index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css` ou `app.js` sont absents du dossier téléchargé.
+
 Le JavaScript est chargé comme un script classique afin de fonctionner directement avec une adresse `file:///...`. Il ne faut pas ajouter `type="module"` au script : Chrome bloque les modules locaux avec une erreur CORS lorsque la page n'est pas servie en HTTP.
 
 L'application appelle l'API publique Recherche d'entreprises depuis le navigateur, conserve les résultats et décisions dans le stockage local du navigateur, et exporte un fichier CSV compatible avec Excel.
@@ -34,4 +36,4 @@ L'import RNA accepte les noms de colonnes courants des exports officiels (`id`, 
 npm test
 ```
 
-La commande utilise uniquement le moteur de test inclus dans Node.js : `npm install` n'est pas nécessaire.
+La commande utilise uniquement le moteur de test inclus dans Node.js : `npm install` n'est pas nécessaire. Après une modification de `index.template.html`, `styles.css` ou `app.js`, lancer `npm run build` pour régénérer le fichier autonome `index.html`.

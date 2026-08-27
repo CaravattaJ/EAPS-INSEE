@@ -5,7 +5,179 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Repérage local des nouveaux établissements sportifs de Côte-d'Or.">
   <title>Veille Sports 21</title>
-  <link rel="stylesheet" href="styles.css">
+  <style>
+:root {
+  color-scheme: light;
+  --navy: #101d3b;
+  --blue: #335bd6;
+  --blue-dark: #2446af;
+  --blue-pale: #eef2ff;
+  --background: #f4f6fa;
+  --surface: #ffffff;
+  --border: #dfe4ee;
+  --muted: #667085;
+  --text: #1b2438;
+  --green: #18794e;
+  --amber: #9a6700;
+  --red: #b42318;
+  --shadow: 0 8px 28px rgba(31, 46, 86, 0.07);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--background);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 78px;
+  padding: 12px max(24px, calc((100% - 1180px) / 2));
+  background: var(--navy);
+  color: white;
+}
+
+.topbar h1 { margin: 1px 0 0; font-size: 1.25rem; }
+.topbar .eyebrow { color: #bcc9ed; }
+.brand-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--navy);
+  font-weight: 800;
+}
+.local-badge {
+  margin-left: auto;
+  padding: 7px 11px;
+  border: 1px solid #53658f;
+  border-radius: 999px;
+  color: #d7e0f8;
+  font-size: .82rem;
+}
+
+main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 48px; }
+.card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 30px 34px;
+  border-top: 4px solid var(--blue);
+}
+.eyebrow { margin: 0; color: var(--blue-dark); font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+h2 { margin: 7px 0 0; font-size: clamp(1.4rem, 3vw, 2rem); color: var(--navy); }
+.hero-copy { max-width: 670px; margin: 10px 0 0; color: var(--muted); line-height: 1.55; }
+
+.primary-button, .secondary-button {
+  min-height: 44px;
+  padding: 0 17px;
+  border-radius: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.primary-button { border: 0; background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(51,91,214,.25); }
+.primary-button:hover { background: var(--blue-dark); }
+.primary-button:disabled { cursor: wait; opacity: .65; }
+.secondary-button { border: 1px solid #bfc8da; background: white; color: var(--navy); }
+.secondary-button:hover { background: #f7f8fb; }
+
+.status-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; margin: 18px 0; }
+.metric { padding: 20px 22px; }
+.metric-label { display: block; margin-bottom: 9px; color: var(--muted); font-size: .86rem; }
+.metric strong { color: var(--navy); font-size: 1.45rem; }
+
+.message { margin: 0 0 18px; padding: 13px 16px; border-radius: 9px; border: 1px solid #a9c4ff; background: #edf3ff; color: #173d8f; }
+.message.error { border-color: #f1ada8; background: #fff0ef; color: var(--red); }
+
+.results-card { overflow: hidden; }
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 24px; }
+.section-heading h2 { font-size: 1.35rem; }
+.actions { display: flex; gap: 10px; }
+.confidence-note {
+  display: flex;
+  gap: 13px;
+  margin: 0 24px 24px;
+  padding: 16px 18px;
+  border: 1px solid #cbd7f8;
+  border-radius: 10px;
+  background: #f5f7ff;
+  color: #3d4862;
+}
+.confidence-icon {
+  display: grid;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue);
+  color: white;
+  font-family: Georgia, serif;
+  font-weight: 800;
+}
+.confidence-note h3 { margin: 2px 0 6px; color: var(--navy); font-size: 1rem; }
+.confidence-note p { margin: 0; line-height: 1.5; }
+.confidence-note ul { display: grid; gap: 8px; margin: 12px 0; padding-left: 20px; }
+.confidence-note li { padding-left: 3px; line-height: 1.5; }
+.confidence-note li .priority { margin-right: 5px; }
+.confidence-warning { padding-top: 10px; border-top: 1px solid #d7def2; font-size: .86rem; }
+.search-field input, .settings-grid input {
+  min-height: 44px;
+  border: 1px solid #c8cfdd;
+  border-radius: 8px;
+  background: white;
+  color: var(--text);
+}
+.search-field input { width: min(280px, 35vw); padding: 0 13px; }
+.table-wrap { overflow-x: auto; border-top: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 12px 16px; background: #f8f9fc; color: #4c566d; font-size: .76rem; letter-spacing: .035em; text-align: left; text-transform: uppercase; }
+td { padding: 15px 16px; border-top: 1px solid #edf0f5; vertical-align: middle; font-size: .9rem; }
+tbody tr:hover { background: #fbfcff; }
+.structure-name { display: block; margin-bottom: 3px; color: var(--navy); font-weight: 750; }
+.identifier { color: var(--muted); font-size: .78rem; }
+.priority { display: inline-block; padding: 5px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
+.priority.high { background: #ffebe9; color: var(--red); }
+.priority.medium { background: #fff4d6; color: var(--amber); }
+.decision-select { max-width: 155px; padding: 8px; border: 1px solid #c8cfdd; border-radius: 7px; background: white; }
+.empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
+.empty-state h3 { margin: 8px 0 6px; color: var(--navy); }
+.empty-state p { margin: 0; }
+.empty-icon { color: #90a0c5; font-size: 2.4rem; }
+
+.settings-card { margin-top: 18px; padding: 18px 22px; }
+.settings-card summary { color: var(--navy); cursor: pointer; font-weight: 750; }
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(200px, 320px)); gap: 18px; margin-top: 18px; }
+.settings-grid label { display: grid; gap: 7px; color: #475169; font-size: .86rem; font-weight: 650; }
+.settings-grid input { padding: 0 11px; }
+.help { max-width: 800px; margin: 15px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+
+footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px max(24px, calc((100% - 1180px) / 2)); border-top: 1px solid var(--border); color: var(--muted); font-size: .8rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .hero, .section-heading { align-items: stretch; flex-direction: column; }
+  .primary-button { width: 100%; }
+  .status-grid { grid-template-columns: 1fr; }
+  .actions { flex-direction: column; }
+  .search-field input { width: 100%; }
+  .settings-grid { grid-template-columns: 1fr; }
+  footer { flex-direction: column; }
+}
+</style>
 </head>
 <body>
   <header class="topbar">
@@ -118,8 +290,313 @@
     <span>Source : API Recherche d'entreprises</span>
   </footer>
 
-  <!-- Script classique volontairement : un module ES est bloqué par Chrome lorsque
-       l'application est ouverte directement avec le protocole file://. -->
-  <script src="app.js"></script>
+  <script>
+const API_BASE = "https://recherche-entreprises.api.gouv.fr/search";
+const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z"];
+const STORAGE_KEY = "veille-sports-21-state-v1";
+const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
+const REQUEST_DELAY_MS = 900;
+const MAX_RETRIES = 4;
+const SPORT_KEYWORDS = [
+  "sport", "football", "futsal", "rugby", "handball", "basket", "volley", "judo", "karate", "karaté",
+  "aikido", "aïkido", "boxe", "gymnastique", "fitness", "musculation", "natation", "plongee", "plongée",
+  "canoe", "canoë", "kayak", "aviron", "cyclisme", "vtt", "equitation", "équitation", "randonnee", "randonnée",
+  "escalade", "athletisme", "athlétisme", "triathlon", "tennis", "badminton", "petanque", "pétanque", "escrime"
+];
+
+function wait(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function defaultSince(today = new Date()) {
+  const date = new Date(today);
+  date.setDate(date.getDate() - 30);
+  return date.toISOString().slice(0, 10);
+}
+
+function isAfter(date, since) {
+  return Boolean(date) && date.slice(0, 10) >= since;
+}
+
+function normalizeResult(result, establishment, code) {
+  const siege = result.siege || {};
+  const item = establishment || siege;
+  const address = item.adresse || item;
+  return {
+    siret: String(item.siret || siege.siret || ""),
+    siren: String(result.siren || ""),
+    name: result.nom_complet || result.nom_raison_sociale || result.nom_commercial || "Nom non renseigné",
+    commune: address.libelle_commune || item.libelle_commune || "Non renseignée",
+    postalCode: address.code_postal || item.code_postal || "",
+    activity: item.activite_principale || code,
+    creationDate: item.date_creation || result.date_creation || "",
+    association: Boolean(result.complements?.est_association),
+    rna: result.identifiant_association || result.complements?.identifiant_association || "",
+    priority: ["93.11Z", "93.12Z", "93.13Z", "93.19Z"].includes(item.activite_principale || code) ? "Élevée" : "Moyenne",
+    decision: "À qualifier"
+  };
+}
+
+function extractItems(payload, code, since) {
+  const items = [];
+  for (const result of payload.results || []) {
+    const matches = result.matching_etablissements?.length ? result.matching_etablissements : [result.siege];
+    for (const establishment of matches.filter(Boolean)) {
+      const normalized = normalizeResult(result, establishment, code);
+      if (normalized.postalCode.startsWith("21") && isAfter(normalized.creationDate, since)) items.push(normalized);
+    }
+  }
+  return items;
+}
+
+function deduplicate(items) {
+  return [...new Map(items.filter(item => item.siret || item.rna).map(item => [item.siret || `rna:${item.rna}`, item])).values()];
+}
+
+function normalizeText(value = "") {
+  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function findSportKeywords(value) {
+  const text = normalizeText(value);
+  const found = new Map();
+  for (const keyword of SPORT_KEYWORDS) {
+    const normalized = normalizeText(keyword);
+    if (!found.has(normalized) && new RegExp(`(^|[^a-z])${normalized}([^a-z]|$)`, "i").test(text)) found.set(normalized, keyword);
+  }
+  return [...found.values()];
+}
+
+function parseDelimited(text, delimiter = ";") {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"' && quoted && text[index + 1] === '"') { field += '"'; index += 1; }
+    else if (character === '"') quoted = !quoted;
+    else if (character === delimiter && !quoted) { row.push(field); field = ""; }
+    else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(field); field = "";
+      if (row.some(value => value.trim())) rows.push(row);
+      row = [];
+    } else field += character;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function firstValue(record, names) {
+  for (const name of names) if (record[name]) return record[name].trim();
+  return "";
+}
+
+function normalizeRnaDate(value) {
+  const french = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value || "");
+  if (french) return `${french[3]}-${french[2]}-${french[1]}`;
+  return (value || "").slice(0, 10);
+}
+
+function extractRnaItems(text, since) {
+  const delimiter = (text.split(/\r?\n/, 1)[0].match(/;/g) || []).length >= (text.split(/\r?\n/, 1)[0].match(/,/g) || []).length ? ";" : ",";
+  const rows = parseDelimited(text.replace(/^\uFEFF/, ""), delimiter);
+  if (rows.length < 2) throw new Error("Le fichier RNA est vide ou son format n'est pas reconnu");
+  const headers = rows.shift().map(value => normalizeText(value.trim()));
+  return deduplicate(rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]))).map(record => {
+    const title = firstValue(record, ["titre", "titre_court", "nom"]);
+    const object = firstValue(record, ["objet", "objet_social", "objet_social1"]);
+    const keywords = findSportKeywords(`${title} ${object}`);
+    const creationDate = normalizeRnaDate(firstValue(record, ["date_creat", "date_creation", "date_decla", "date_declaration"]));
+    const postalCode = firstValue(record, ["adrs_codepostal", "code_postal", "codepostal"]);
+    const dissolution = firstValue(record, ["date_disso", "date_dissolution"]);
+    if (!keywords.length || !postalCode.startsWith("21") || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
+    return {
+      siret: firstValue(record, ["siret"]),
+      siren: "",
+      rna: firstValue(record, ["id", "rna", "numero_rna", "id_ex"]),
+      name: title || "Association sans titre",
+      commune: firstValue(record, ["adrs_libcommune", "libelle_commune", "commune"]) || "Non renseignée",
+      postalCode,
+      activity: "Objet associatif sportif",
+      creationDate,
+      association: true,
+      object,
+      reason: `Mot(s)-clé(s) : ${keywords.join(", ")}`,
+      source: "RNA",
+      priority: "Moyenne",
+      decision: "À qualifier"
+    };
+  }).filter(item => item && (item.rna || item.siret)));
+}
+
+function loadState() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { items: [], lastSync: null };
+  } catch {
+    return { items: [], lastSync: null };
+  }
+}
+
+function saveState(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+async function requestWithRetry(url, fetchImplementation = fetch, waitImplementation = wait) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    const response = await fetchImplementation(url);
+    if (response.status !== 429) return response;
+    if (attempt === MAX_RETRIES) break;
+
+    const retryAfter = Number(response.headers?.get?.("Retry-After"));
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : Math.min(2000 * (2 ** attempt), 30000);
+    await waitImplementation(delay);
+  }
+  throw new Error("L'API limite temporairement les recherches (erreur 429). Attendez une minute puis réessayez");
+}
+
+async function fetchCode(code, since, onProgress = () => {}) {
+  const items = [];
+  let page = 1;
+  let pages = 1;
+  do {
+    onProgress(code, page, pages);
+    const params = new URLSearchParams({
+      departement: "21",
+      activite_principale: code,
+      etat_administratif: "A",
+      date_creation_min: since,
+      per_page: "25",
+      page: String(page)
+    });
+    const response = await requestWithRetry(`${API_BASE}?${params}`);
+    if (!response.ok) throw new Error(`La source a répondu ${response.status}`);
+    const payload = await response.json();
+    items.push(...extractItems(payload, code, since));
+    pages = Math.min(Number(payload.total_pages || 1), 20);
+    page += 1;
+    if (page <= pages) await wait(REQUEST_DELAY_MS);
+  } while (page <= pages);
+  return items;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("fr-FR").format(new Date(`${value.slice(0, 10)}T12:00:00`));
+}
+
+function render(state, query = "") {
+  const filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity].join(" ").toLowerCase().includes(query.toLowerCase()));
+  document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
+  document.querySelector("#new-count").textContent = state.items.length;
+  document.querySelector("#pending-count").textContent = state.items.filter(item => item.decision === "À qualifier").length;
+  document.querySelector("#empty-state").hidden = filtered.length > 0;
+  document.querySelector("table").hidden = filtered.length === 0;
+  document.querySelector("#results-body").innerHTML = filtered.map(item => `
+    <tr>
+      <td><span class="priority ${item.priority === "Élevée" ? "high" : "medium"}">${escapeHtml(item.priority)}</span></td>
+      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Source RNA" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}</td>
+      <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
+      <td>${escapeHtml(item.activity)}</td>
+      <td>${formatDate(item.creationDate)}</td>
+      <td><select class="decision-select" data-key="${escapeHtml(item.siret || `rna:${item.rna}`)}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${decision}</option>`).join("")}</select></td>
+    </tr>`).join("");
+}
+
+function showMessage(text, error = false) {
+  const message = document.querySelector("#message");
+  message.textContent = text;
+  message.classList.toggle("error", error);
+  message.hidden = false;
+}
+
+function exportCsv(items) {
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Motif", "Date de création", "Décision"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activity, item.reason || "", item.creationDate, item.decision])];
+  const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
+  link.download = `veille-sports-21-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// Expose uniquement les fonctions pures nécessaires aux tests. L'utilisation de
+// globalThis conserve un script classique compatible avec une ouverture file://,
+// tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
+Object.assign(globalThis, {
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems }
+});
+
+if (typeof document !== "undefined") {
+  const state = loadState();
+  const sinceInput = document.querySelector("#since-input");
+  sinceInput.value = state.lastSync ? new Date(new Date(state.lastSync).getTime() - 5 * 86400000).toISOString().slice(0, 10) : defaultSince();
+  render(state);
+
+  document.querySelector("#search-button").addEventListener("click", async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Recherche en cours…";
+    showMessage("Consultation des activités sportives en Côte-d'Or…");
+    try {
+      const batches = [];
+      for (const [index, code] of SPORTS_CODES.entries()) {
+        button.textContent = `Recherche ${index + 1}/${SPORTS_CODES.length} — ${code}…`;
+        batches.push(await fetchCode(code, sinceInput.value, (_activity, page, pages) => {
+          if (pages > 1) button.textContent = `Recherche ${index + 1}/${SPORTS_CODES.length} — ${code}, page ${page}/${pages}…`;
+        }));
+        if (index < SPORTS_CODES.length - 1) await wait(REQUEST_DELAY_MS);
+      }
+      const previous = new Map(state.items.map(item => [item.siret || `rna:${item.rna}`, item]));
+      const existingRna = state.items.filter(item => item.source === "RNA");
+      state.items = deduplicate([...batches.flat(), ...existingRna]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision }));
+      state.lastSync = new Date().toISOString();
+      saveState(state);
+      render(state, document.querySelector("#filter-input").value);
+      showMessage(`${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées.`);
+    } catch (error) {
+      showMessage(`Recherche impossible : ${error.message}. Vérifiez l'accès réseau à recherche-entreprises.api.gouv.fr.`, true);
+    } finally {
+      button.disabled = false;
+      button.innerHTML = '<span aria-hidden="true">↻</span> Rechercher les nouveautés';
+    }
+  });
+
+  document.querySelector("#filter-input").addEventListener("input", event => render(state, event.target.value));
+  document.querySelector("#rna-button").addEventListener("click", () => document.querySelector("#rna-input").click());
+  document.querySelector("#rna-input").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    showMessage(`Analyse du fichier RNA « ${file.name} »…`);
+    try {
+      const imported = extractRnaItems(await file.text(), sinceInput.value);
+      const previous = new Map(state.items.map(item => [item.siret || `rna:${item.rna}`, item]));
+      state.items = deduplicate([...state.items, ...imported]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision }));
+      saveState(state);
+      render(state, document.querySelector("#filter-input").value);
+      showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
+    } catch (error) {
+      showMessage(`Import RNA impossible : ${error.message}.`, true);
+    } finally {
+      event.target.value = "";
+    }
+  });
+  document.querySelector("#results-body").addEventListener("change", event => {
+    if (!event.target.matches(".decision-select")) return;
+    const item = state.items.find(candidate => (candidate.siret || `rna:${candidate.rna}`) === event.target.dataset.key);
+    if (item) item.decision = event.target.value;
+    saveState(state);
+    render(state, document.querySelector("#filter-input").value);
+  });
+  document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
+}
+</script>
 </body>
 </html>
