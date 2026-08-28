@@ -101,6 +101,31 @@ test("extracts active sports associations in Côte-d'Or from RNA CSV, keeping un
   assert.match(culture.reason, /Aucun indice sportif/);
 });
 
+test("recognizes the rna_import file's 'libcom' column for the commune", () => {
+  const csv = [
+    "id;titre;objet;date_creat;date_disso;adrs_codepostal;libcom",
+    "W212345695;Basket Dijon;Pratique du basket;12/08/2026;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].commune, "DIJON");
+});
+
+test("treats the rna_import placeholder date 0001-01-01 as unknown rather than excluding the row", () => {
+  const csv = [
+    "id;titre;objet;date_creat;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345696;Escrime Dijon;Pratique de l'escrime;0001-01-01;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].creationDate, "");
+});
+
+test("throws a clear error naming the detected headers when the file's columns aren't recognized", () => {
+  const csv = ["nom;description;departement", "Club X;Un club;21"].join("\n");
+  assert.throws(() => extractRnaItems(csv, "2026-08-01"), /Colonnes trouvées/);
+});
+
 test("recognizes a sport WALDEC code even without a keyword match in the title/object", () => {
   const csv = [
     "id;titre;objet;date_creat;date_disso;adrs_codepostal;adrs_libcommune;objet_social1;objet_social2",
