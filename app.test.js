@@ -245,7 +245,7 @@ test("normalizeJoafeRecord recognizes the sport family code (11000/...) from the
     codepostal_actuel: "21440",
     dateparution: "2026-08-25",
     numero_rna: "W212000001",
-    geo_point: [47.439498, 4.788477]
+    geo_point: { lat: 47.439498, lon: 4.788477 }
   };
   const item = normalizeJoafeRecord(record);
   assert.equal(item.priority, "Élevée");
@@ -254,6 +254,15 @@ test("normalizeJoafeRecord recognizes the sport family code (11000/...) from the
   assert.equal(item.creationDate, "2026-08-25");
   assert.equal(item.lat, 47.439498);
   assert.equal(item.lon, 4.788477);
+});
+
+test("normalizeJoafeRecord doesn't crash when geo_point is missing or null", () => {
+  const withoutGeoPoint = normalizeJoafeRecord({ titre: "LECLERC", objet: "commerce", domaine_activite_categorise: [] });
+  assert.equal(withoutGeoPoint.lat, null);
+  assert.equal(withoutGeoPoint.lon, null);
+  const withNullGeoPoint = normalizeJoafeRecord({ titre: "LECLERC", objet: "commerce", domaine_activite_categorise: [], geo_point: null });
+  assert.equal(withNullGeoPoint.lat, null);
+  assert.equal(withNullGeoPoint.lon, null);
 });
 
 test("normalizeJoafeRecord falls back to keywords, then to low priority, for non-sport activity codes", () => {
