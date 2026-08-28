@@ -308,7 +308,9 @@ function normalizeJoafeRecord(record) {
     : keywords.length
       ? `Mot(s)-clé(s) : ${keywords.join(", ")}`
       : "Aucun indice sportif détecté dans l'objet déclaré, à vérifier";
-  const [lat = null, lon = null] = record.geo_point || [];
+  // Le champ geo_point de l'API Journal officiel (v2.1) est un objet { lon, lat }, pas un tableau.
+  const lat = record.geo_point?.lat;
+  const lon = record.geo_point?.lon;
   return {
     siret: "",
     siren: "",
