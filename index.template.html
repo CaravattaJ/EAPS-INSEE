@@ -92,6 +92,19 @@
         </div>
       </div>
 
+      <div class="section-heading shared-heading">
+        <div>
+          <p class="eyebrow">Travail en équipe</p>
+          <h2>Liste partagée entre agents</h2>
+        </div>
+        <div class="actions">
+          <button id="load-shared-button" class="secondary-button" type="button">Charger la liste partagée</button>
+          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer sur le partage</button>
+        </div>
+      </div>
+      <p class="help shared-help">Chargez le fichier <code>veille-sports-partage.json</code> depuis votre dossier réseau partagé pour récupérer le travail de vos collègues (fusionné avec le vôtre, sans rien perdre), puis « Enregistrer sur le partage » pour déposer votre propre fichier dans ce même dossier (en écrasant l'ancien). Attention&nbsp;: sans serveur commun, deux enregistrements presque simultanés peuvent se marcher dessus — pensez à recharger avant d'enregistrer si vous n'êtes pas seul(e) à jour.</p>
+
       <aside class="confidence-note" aria-labelledby="confidence-title">
         <div class="confidence-icon" aria-hidden="true">i</div>
         <div>
@@ -115,6 +128,7 @@
               <th><button type="button" class="sort-button" data-sort="commune">Commune</button></th>
               <th><button type="button" class="sort-button" data-sort="activity">Activité</button></th>
               <th><button type="button" class="sort-button" data-sort="creationDate">Création</button></th>
+              <th>Décision</th>
             </tr>
           </thead>
           <tbody id="results-body"></tbody>

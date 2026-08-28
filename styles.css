@@ -168,6 +168,9 @@ tbody tr:hover { background: #fbfcff; }
 .priority.low { background: #eef1f6; color: var(--muted); }
 .duplicate-flag { display: block; margin-top: 3px; color: var(--amber); font-size: .78rem; font-weight: 700; }
 .future-flag { display: inline-block; margin-top: 3px; color: var(--amber); font-size: .78rem; font-weight: 700; }
+.decision-select { max-width: 155px; padding: 8px; border: 1px solid #c8cfdd; border-radius: 7px; background: white; }
+.shared-heading { padding: 18px 24px 0; }
+.shared-help { padding: 0 24px 20px; }
 .empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
 .empty-state h3 { margin: 8px 0 6px; color: var(--navy); }
 .empty-state p { margin: 0; }

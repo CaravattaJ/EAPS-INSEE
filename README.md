@@ -94,6 +94,16 @@ L'INSEE enregistre parfois une « date de création » qui correspond à une dat
 
 À chaque nouvelle recherche, les structures déjà connues (Sirene ou RNA) sont conservées même si la nouvelle date choisie est plus tardive que celle d'une recherche précédente — seules les décisions déjà prises restent inchangées, la liste ne fait que grandir. Vous pouvez donc utiliser la recherche Sirene et l'import RNA dans l'ordre que vous voulez, aussi souvent que vous voulez : les deux sources se combinent toujours automatiquement.
 
+### Décisions par structure, et liste partagée entre agents
+
+Chaque structure a de nouveau une décision (menu déroulant : À qualifier, À contrôler, Déjà connu, Pas un lieu de pratique, Hors périmètre). Au premier changement de décision sur un poste, l'application demande une fois le nom ou les initiales de l'agent (mémorisé ensuite sur ce poste) ; chaque décision garde ensuite trace de qui l'a prise et quand (affiché sous le menu, et exporté dans le CSV).
+
+Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune :
+- **« Charger la liste partagée »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats locaux : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
+- **« Enregistrer sur le partage »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
+
+**Limite à connaître** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). Le réflexe à prendre : charger la liste partagée avant de commencer à qualifier des structures, et enregistrer en fin de session.
+
 ### Alertes de fraîcheur
 
 Deux avertissements s'affichent indépendamment si vous n'avez pas relancé les recherches depuis plus de 10 jours : un pour la recherche automatique (Sirene), un pour l'import manuel du fichier RNA.

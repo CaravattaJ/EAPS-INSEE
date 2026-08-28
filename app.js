@@ -3,6 +3,9 @@ const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z", "93.29Z"
 const HIGH_PRIORITY_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z"];
 const MEDIUM_PRIORITY_CODES = ["85.51Z"];
 const STORAGE_KEY = "veille-sports-21-state-v1";
+const AGENT_NAME_KEY = "veille-sports-agent-name";
+const SHARED_FILE_NAME = "veille-sports-partage.json";
+const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
 const MAX_RETRIES = 4;
 // L'API Sirene ne propose aucun filtre ni tri par date de création (vérifié sur sa
@@ -87,6 +90,33 @@ function toCoordinate(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function defaultDecisionFields() {
+  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
+}
+
+function itemKey(item) {
+  return item.siret || `rna:${item.rna}`;
+}
+
+// Choisit, entre deux versions du même item, la décision la plus récente (par date de
+// décision) plutôt que d'écraser aveuglément l'une par l'autre. Sert à la fois à ne pas
+// perdre une décision déjà prise quand une recherche rafraîchit les données factuelles
+// d'une structure, et à fusionner un fichier partagé avec l'état local sans verrou.
+function mergeDecision(oldItem, newItem) {
+  const oldAt = oldItem?.decidedAt || "";
+  const newAt = newItem?.decidedAt || "";
+  const winner = oldAt > newAt ? oldItem : newItem;
+  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "" };
+}
+
+function mergeItemLists(oldItems, newItems) {
+  const oldByKey = new Map(oldItems.map(item => [itemKey(item), item]));
+  return deduplicate([...oldItems, ...newItems]).map(item => {
+    const old = oldByKey.get(itemKey(item));
+    return old ? { ...item, ...mergeDecision(old, item) } : item;
+  });
+}
+
 function normalizeResult(result, establishment, code) {
   const siege = result.siege || {};
   const item = establishment || siege;
@@ -103,7 +133,8 @@ function normalizeResult(result, establishment, code) {
     rna: result.identifiant_association || result.complements?.identifiant_association || "",
     priority: priorityForCode(item.activite_principale || code),
     lat: toCoordinate(item.latitude),
-    lon: toCoordinate(item.longitude)
+    lon: toCoordinate(item.longitude),
+    ...defaultDecisionFields()
   };
 }
 
@@ -247,7 +278,8 @@ function extractRnaItems(text, since, departments = DEFAULT_DEPARTMENTS) {
       source: "RNA",
       priority,
       lat: null,
-      lon: null
+      lon: null,
+      ...defaultDecisionFields()
     };
   }).filter(item => item && (item.rna || item.siret)));
 }
@@ -262,6 +294,17 @@ function loadState() {
 
 function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// Demande le nom/les initiales de l'agent une seule fois par poste, pour identifier qui a
+// pris quelle décision quand plusieurs agents partagent leurs résultats.
+function getAgentName() {
+  let name = localStorage.getItem(AGENT_NAME_KEY) || "";
+  if (!name) {
+    name = (prompt("Votre nom ou vos initiales (pour identifier vos décisions auprès de vos collègues) :") || "").trim();
+    if (name) localStorage.setItem(AGENT_NAME_KEY, name);
+  }
+  return name;
 }
 
 async function requestWithRetry(url, fetchImplementation = fetch, waitImplementation = wait) {
@@ -363,7 +406,8 @@ function normalizeJoafeRecord(record) {
     source: "JOAFE",
     priority,
     lat: toCoordinate(lat),
-    lon: toCoordinate(lon)
+    lon: toCoordinate(lon),
+    ...defaultDecisionFields()
   };
 }
 
@@ -484,6 +528,7 @@ function render(state, query = "", options = {}) {
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td>${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
+      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
     </tr>`).join("");
   return { currentPage, mapItems: filtered };
 }
@@ -501,7 +546,7 @@ function timestampForFilename(date = new Date()) {
 }
 
 function exportCsv(items) {
-  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Motif", "Date de création"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activity, item.reason || "", item.creationDate])];
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activity, item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || ""])];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -514,7 +559,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
 });
 
 function readSelectedDepartments(checkboxes) {
@@ -668,8 +713,9 @@ if (typeof document !== "undefined") {
       if (joafeTruncated) incompleteCount += 1;
 
       // Les anciens résultats sont mis en premier : ils sont conservés même si la nouvelle recherche
-      // porte sur une période plus courte, et les nouveaux résultats (mêmes clé) les mettent à jour.
-      state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat(), ...joafeItems]));
+      // porte sur une période plus courte, et les nouveaux résultats (mêmes clé) les mettent à jour ;
+      // la décision déjà prise sur une structure n'est jamais écrasée par le rafraîchissement.
+      state.items = flagProbableDuplicates(mergeItemLists(state.items, [...keywordBatch, ...batches.flat(), ...joafeItems]));
       state.lastSync = new Date().toISOString();
       state.departments = departments;
       saveState(state);
@@ -701,7 +747,7 @@ if (typeof document !== "undefined") {
         } catch { /* la géolocalisation est un confort, une erreur ici ne doit pas bloquer l'import */ }
         await wait(REQUEST_DELAY_MS);
       }
-      state.items = flagProbableDuplicates(deduplicate([...state.items, ...imported]));
+      state.items = flagProbableDuplicates(mergeItemLists(state.items, imported));
       state.lastRnaImport = new Date().toISOString();
       saveState(state);
       page = 1;
@@ -714,4 +760,46 @@ if (typeof document !== "undefined") {
     }
   });
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
+
+  document.querySelector("#results-body").addEventListener("change", event => {
+    if (!event.target.matches(".decision-select")) return;
+    const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
+    if (!item) return;
+    item.decision = event.target.value;
+    item.decidedBy = getAgentName();
+    item.decidedAt = new Date().toISOString();
+    saveState(state);
+    renderNow();
+  });
+
+  document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
+  document.querySelector("#shared-input").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    showMessage(`Lecture du fichier partagé « ${file.name} »…`);
+    try {
+      const payload = JSON.parse(await file.text());
+      const incoming = Array.isArray(payload.items) ? payload.items : [];
+      state.items = flagProbableDuplicates(mergeItemLists(state.items, incoming));
+      saveState(state);
+      page = 1;
+      renderNow();
+      showMessage(`${incoming.length} structure(s) lues dans le fichier partagé, fusionnées avec votre liste (la décision la plus récente est toujours conservée).`);
+    } catch (error) {
+      showMessage(`Fichier partagé illisible : ${error.message}.`, true);
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  document.querySelector("#save-shared-button").addEventListener("click", () => {
+    if (!state.items.length) { showMessage("Aucun résultat à partager.", true); return; }
+    const payload = { exportedAt: new Date().toISOString(), items: state.items };
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+    link.download = SHARED_FILE_NAME;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showMessage(`Fichier « ${SHARED_FILE_NAME} » téléchargé : déposez-le dans votre dossier réseau partagé (en écrasant l'ancien) pour que vos collègues le voient.`);
+  });
 }

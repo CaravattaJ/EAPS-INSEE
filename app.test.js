@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -54,6 +54,43 @@ test("paginate slices items and clamps an out-of-range page", () => {
   const empty = paginate([], 1, 5);
   assert.equal(empty.currentPage, 1);
   assert.equal(empty.totalPages, 1);
+});
+
+test("itemKey uses SIRET, falling back to a namespaced RNA number", () => {
+  assert.equal(itemKey({ siret: "123", rna: "" }), "123");
+  assert.equal(itemKey({ siret: "", rna: "W21" }), "rna:W21");
+});
+
+test("mergeDecision keeps whichever side has the most recent decidedAt", () => {
+  const older = { decision: "À qualifier", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z" };
+  const newer = { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" };
+  assert.deepEqual(mergeDecision(older, newer), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" });
+  assert.deepEqual(mergeDecision(newer, older), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" });
+});
+
+test("mergeDecision treats a never-decided item as older than any real decision", () => {
+  const undecided = { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
+  const decided = { decision: "Déjà connu", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z" };
+  assert.deepEqual(mergeDecision(undecided, decided), decided);
+  assert.deepEqual(mergeDecision(decided, undecided), decided);
+});
+
+test("mergeItemLists refreshes factual data from newItems but never loses a prior decision", () => {
+  const old = [{ siret: "1", name: "Ancien nom", decision: "À contrôler", decidedBy: "Agent A", decidedAt: "2026-08-01T10:00:00Z" }];
+  const fresh = [{ siret: "1", name: "Nom à jour", decision: DECISIONS[0], decidedBy: "", decidedAt: "" }];
+  const merged = mergeItemLists(old, fresh);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].name, "Nom à jour");
+  assert.equal(merged[0].decision, "À contrôler");
+  assert.equal(merged[0].decidedBy, "Agent A");
+});
+
+test("mergeItemLists lets a colleague's newer decision from a shared file win over a local older one", () => {
+  const local = [{ siret: "1", name: "Club X", decision: "À qualifier", decidedBy: "", decidedAt: "" }];
+  const shared = [{ siret: "1", name: "Club X", decision: "Déjà connu", decidedBy: "Collègue", decidedAt: "2026-08-10T10:00:00Z" }];
+  const merged = mergeItemLists(local, shared);
+  assert.equal(merged[0].decision, "Déjà connu");
+  assert.equal(merged[0].decidedBy, "Collègue");
 });
 
 test("formatDuration expresses a page count as a human-readable time estimate", () => {
