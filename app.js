@@ -3,7 +3,6 @@ const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z", "93.29Z"
 const HIGH_PRIORITY_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z"];
 const MEDIUM_PRIORITY_CODES = ["85.51Z"];
 const STORAGE_KEY = "veille-sports-21-state-v1";
-const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
 const MAX_RETRIES = 4;
 const MAX_API_PAGES = 20;
@@ -61,8 +60,7 @@ function normalizeResult(result, establishment, code) {
     creationDate: item.date_creation || result.date_creation || "",
     association: Boolean(result.complements?.est_association),
     rna: result.identifiant_association || result.complements?.identifiant_association || "",
-    priority: priorityForCode(item.activite_principale || code),
-    decision: "À qualifier"
+    priority: priorityForCode(item.activite_principale || code)
   };
 }
 
@@ -204,8 +202,7 @@ function extractRnaItems(text, since) {
       object,
       reason,
       source: "RNA",
-      priority,
-      decision: "À qualifier"
+      priority
     };
   }).filter(item => item && (item.rna || item.siret)));
 }
@@ -293,8 +290,7 @@ function normalizeJoafeRecord(record) {
     object: record.objet || "",
     reason,
     source: "JOAFE",
-    priority,
-    decision: "À qualifier"
+    priority
   };
 }
 
@@ -346,17 +342,38 @@ function isFutureDate(value) {
   return value.slice(0, 10) > new Date().toISOString().slice(0, 10);
 }
 
-function render(state, query = "") {
-  const filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity].join(" ").toLowerCase().includes(query.toLowerCase()));
+const PRIORITY_ORDER = { "Élevée": 3, "Moyenne": 2, "Faible": 1 };
+
+function sortItems(items, column, direction = "asc") {
+  if (!column) return items;
+  const factor = direction === "desc" ? -1 : 1;
+  return [...items].sort((a, b) => {
+    const av = column === "priority" ? (PRIORITY_ORDER[a.priority] || 0) : String(a[column] ?? "").toLowerCase();
+    const bv = column === "priority" ? (PRIORITY_ORDER[b.priority] || 0) : String(b[column] ?? "").toLowerCase();
+    if (av < bv) return -1 * factor;
+    if (av > bv) return 1 * factor;
+    return 0;
+  });
+}
+
+function render(state, query = "", options = {}) {
+  const { hideLow = false, sortColumn = null, sortDirection = "asc" } = options;
+  let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity].join(" ").toLowerCase().includes(query.toLowerCase()));
+  if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
+  filtered = sortItems(filtered, sortColumn, sortDirection);
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
   document.querySelector("#new-count").textContent = state.items.length;
-  document.querySelector("#pending-count").textContent = state.items.filter(item => item.decision === "À qualifier").length;
+  document.querySelector("#pending-count").textContent = state.items.filter(item => item.priority === "Faible").length;
   document.querySelector("#empty-state").hidden = filtered.length > 0;
   document.querySelector("table").hidden = filtered.length === 0;
   const staleSyncWarning = document.querySelector("#stale-sync-warning");
   if (staleSyncWarning) staleSyncWarning.hidden = daysSince(state.lastSync) <= STALE_SYNC_DAYS;
   const staleRnaWarning = document.querySelector("#stale-rna-warning");
   if (staleRnaWarning) staleRnaWarning.hidden = daysSince(state.lastRnaImport) <= STALE_SYNC_DAYS;
+  document.querySelectorAll(".sort-button").forEach(button => {
+    button.classList.toggle("sort-active", button.dataset.sort === sortColumn);
+    button.dataset.sortDirection = button.dataset.sort === sortColumn ? sortDirection : "";
+  });
   document.querySelector("#results-body").innerHTML = filtered.map(item => `
     <tr>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
@@ -364,7 +381,6 @@ function render(state, query = "") {
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td>${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
-      <td><select class="decision-select" data-key="${escapeHtml(item.siret || `rna:${item.rna}`)}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${decision}</option>`).join("")}</select></td>
     </tr>`).join("");
 }
 
@@ -381,7 +397,7 @@ function timestampForFilename(date = new Date()) {
 }
 
 function exportCsv(items) {
-  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Motif", "Date de création", "Décision"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activity, item.reason || "", item.creationDate, item.decision])];
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Motif", "Date de création"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activity, item.reason || "", item.creationDate])];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -394,14 +410,31 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems }
 });
 
 if (typeof document !== "undefined") {
   const state = loadState();
   const sinceInput = document.querySelector("#since-input");
+  const filterInput = document.querySelector("#filter-input");
+  const hideLowInput = document.querySelector("#hide-low-input");
+  let sortColumn = null;
+  let sortDirection = "asc";
+  const renderNow = () => render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection });
+
   sinceInput.value = state.lastSync ? new Date(new Date(state.lastSync).getTime() - RECOVERY_DAYS * 86400000).toISOString().slice(0, 10) : defaultSince();
-  render(state);
+  renderNow();
+
+  hideLowInput.addEventListener("change", renderNow);
+  filterInput.addEventListener("input", renderNow);
+  document.querySelectorAll(".sort-button").forEach(button => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.sort;
+      sortDirection = sortColumn === column && sortDirection === "asc" ? "desc" : "asc";
+      sortColumn = column;
+      renderNow();
+    });
+  });
 
   sinceInput.addEventListener("change", () => {
     const chosen = new Date(`${sinceInput.value}T12:00:00`);
@@ -444,13 +477,12 @@ if (typeof document !== "undefined") {
       });
       if (joafeTruncated) incompleteCount += 1;
 
-      const previous = new Map(state.items.map(item => [item.siret || `rna:${item.rna}`, item]));
       // Les anciens résultats sont mis en premier : ils sont conservés même si la nouvelle recherche
       // porte sur une période plus courte, et les nouveaux résultats (mêmes clé) les mettent à jour.
-      state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat(), ...joafeItems]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision })));
+      state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat(), ...joafeItems]));
       state.lastSync = new Date().toISOString();
       saveState(state);
-      render(state, document.querySelector("#filter-input").value);
+      renderNow();
       let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
       if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
       showMessage(summary);
@@ -462,7 +494,6 @@ if (typeof document !== "undefined") {
     }
   });
 
-  document.querySelector("#filter-input").addEventListener("input", event => render(state, event.target.value));
   document.querySelector("#rna-button").addEventListener("click", () => document.querySelector("#rna-input").click());
   document.querySelector("#rna-input").addEventListener("change", async event => {
     const file = event.target.files[0];
@@ -470,24 +501,16 @@ if (typeof document !== "undefined") {
     showMessage(`Analyse du fichier RNA « ${file.name} »…`);
     try {
       const imported = extractRnaItems(await file.text(), sinceInput.value);
-      const previous = new Map(state.items.map(item => [item.siret || `rna:${item.rna}`, item]));
-      state.items = flagProbableDuplicates(deduplicate([...state.items, ...imported]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision })));
+      state.items = flagProbableDuplicates(deduplicate([...state.items, ...imported]));
       state.lastRnaImport = new Date().toISOString();
       saveState(state);
-      render(state, document.querySelector("#filter-input").value);
+      renderNow();
       showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
     } finally {
       event.target.value = "";
     }
-  });
-  document.querySelector("#results-body").addEventListener("change", event => {
-    if (!event.target.matches(".decision-select")) return;
-    const item = state.items.find(candidate => (candidate.siret || `rna:${candidate.rna}`) === event.target.dataset.key);
-    if (item) item.decision = event.target.value;
-    saveState(state);
-    render(state, document.querySelector("#filter-input").value);
   });
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
 }

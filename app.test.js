@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -207,6 +207,18 @@ test("normalizeJoafeRecord falls back to keywords, then to low priority, for non
     titre: "UNION FRATERNELLE DES ANCIENS COMBATTANTS", objet: "entraide et devoir de mémoire", domaine_activite_categorise: ["36000/36510"], codepostal_actuel: "21000"
   });
   assert.equal(noIndicator.priority, "Faible");
+});
+
+test("sortItems orders by priority level, not alphabetically, and respects direction", () => {
+  const items = [{ priority: "Faible" }, { priority: "Élevée" }, { priority: "Moyenne" }];
+  assert.deepEqual(sortItems(items, "priority", "asc").map(i => i.priority), ["Faible", "Moyenne", "Élevée"]);
+  assert.deepEqual(sortItems(items, "priority", "desc").map(i => i.priority), ["Élevée", "Moyenne", "Faible"]);
+});
+
+test("sortItems orders text columns case-insensitively and leaves the list unchanged without a column", () => {
+  const items = [{ name: "Zèbre" }, { name: "avion" }, { name: "Banane" }];
+  assert.deepEqual(sortItems(items, "name", "asc").map(i => i.name), ["avion", "Banane", "Zèbre"]);
+  assert.deepEqual(sortItems(items, null).map(i => i.name), ["Zèbre", "avion", "Banane"]);
 });
 
 test("isFutureDate flags a declared creation date that hasn't happened yet", () => {
