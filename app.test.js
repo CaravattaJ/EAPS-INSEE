@@ -121,6 +121,28 @@ test("treats the rna_import placeholder date 0001-01-01 as unknown rather than e
   assert.equal(items[0].creationDate, "");
 });
 
+test("never treats the last-declaration date (date_decla) as a creation date, to avoid flagging old associations as new", () => {
+  const csv = [
+    "id;titre;objet;date_decla;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345697;Anciens combattants;Entraide et devoir de mémoire;18/08/2026;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  // La ligne reste visible (date de création inconnue n'est jamais un motif d'exclusion silencieuse),
+  // mais elle ne doit surtout pas hériter de la date de dernière déclaration comme fausse date de création.
+  assert.equal(items.length, 1);
+  assert.equal(items[0].creationDate, "");
+});
+
+test("falls back to the JO publication date (date_publi) when date_creat is missing", () => {
+  const csv = [
+    "id;titre;objet;date_publi;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345698;Rugby Dijon;Pratique du rugby;18/08/2026;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].creationDate, "2026-08-18");
+});
+
 test("throws a clear error naming the detected headers when the file's columns aren't recognized", () => {
   const csv = ["nom;description;departement", "Club X;Un club;21"].join("\n");
   assert.throws(() => extractRnaItems(csv, "2026-08-01"), /Colonnes trouvées/);

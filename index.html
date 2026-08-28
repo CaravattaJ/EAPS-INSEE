@@ -474,7 +474,11 @@ function extractRnaItems(text, since) {
     const waldecCodes = [firstValue(record, ["objet_social1"]), firstValue(record, ["objet_social2"])].filter(Boolean);
     const sportWaldecCode = waldecCodes.find(code => code.startsWith(WALDEC_SPORT_PREFIX));
     const keywords = findSportKeywords(`${title} ${object}`);
-    const creationDate = normalizeRnaDate(firstValue(record, ["date_creat", "date_creation", "date_decla", "date_declaration"]));
+    // "date_decla" est la date de la DERNIÈRE déclaration (ex. changement de bureau, d'adresse) : une
+    // vieille association peut avoir une date_decla très récente sans être nouvelle. On ne l'utilise
+    // donc jamais comme date de création, y compris en repli — seul "date_publi" (date de publication
+    // au Journal officiel de l'avis de création) est un repli légitime quand "date_creat" est absent.
+    const creationDate = normalizeRnaDate(firstValue(record, ["date_creat", "date_creation", "date_publi", "date_publication"]));
     const postalCode = firstValue(record, RNA_POSTAL_CODE_HEADERS);
     const dissolution = firstValue(record, ["date_disso", "date_dissolution"]);
     if (!postalCode.startsWith("21") || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
