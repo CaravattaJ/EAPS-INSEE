@@ -292,7 +292,8 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
       </div>
       <p class="help">La première recherche remonte par défaut sur 30 jours. Ensuite, chaque nouvelle recherche revérifie aussi les 15 derniers jours avant la date affichée : certaines structures mettent du temps à apparaître dans les données publiques, cela évite de les manquer. Les doublons sont automatiquement retirés.</p>
       <p class="help">En plus des activités sportives connues, une recherche complémentaire est faite sur les noms d'entreprise contenant le mot « sport », pour rattraper les structures mal classées.</p>
-      <p class="help"><strong>Associations (fichier RNA)&nbsp;:</strong> téléchargez un export CSV officiel du Répertoire national des associations, puis utilisez «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations de Côte-d'Or correspondant à la période sont ajoutées, classées par niveau de confiance.</p>
+      <p class="help"><strong>Associations&nbsp;:</strong> chaque recherche interroge aussi automatiquement les créations d'associations publiées au Journal officiel — c'est la source la plus à jour, pas besoin de fichier à importer.</p>
+      <p class="help"><strong>Import RNA (facultatif)&nbsp;:</strong> pour un recoupement complémentaire, vous pouvez aussi télécharger un export CSV officiel du Répertoire national des associations, puis utiliser «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations de Côte-d'Or correspondant à la période sont ajoutées, classées par niveau de confiance.</p>
     </details>
   </main>
 
@@ -316,6 +317,9 @@ const STALE_SYNC_DAYS = 10;
 const WIDE_RANGE_WARNING_DAYS = 90;
 const WALDEC_SPORT_PREFIX = "011";
 const COMPLEMENTARY_KEYWORD = "sport";
+const JOAFE_API_BASE = "https://journal-officiel-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/jo_associations/records";
+const JOAFE_PAGE_SIZE = 100;
+const JOAFE_SPORT_FAMILY_PREFIX = "11000/";
 const SPORT_KEYWORDS = [
   "sport", "football", "futsal", "rugby", "handball", "basket", "volley", "judo", "karate", "karaté",
   "aikido", "aïkido", "boxe", "gymnastique", "fitness", "musculation", "natation", "plongee", "plongée",
@@ -406,11 +410,15 @@ function duplicateKey(item) {
   return `${normalizeText(item.name)}|${item.postalCode}`;
 }
 
+function isAssociationSource(item) {
+  return item.source === "RNA" || item.source === "JOAFE";
+}
+
 function flagProbableDuplicates(items) {
-  const sireneAssociations = items.filter(item => item.source !== "RNA" && item.association && item.siret);
+  const sireneAssociations = items.filter(item => !isAssociationSource(item) && item.association && item.siret);
   const sireneByKey = new Map(sireneAssociations.map(item => [duplicateKey(item), item]));
   return items.map(item => {
-    if (item.source !== "RNA") {
+    if (!isAssociationSource(item)) {
       const { possibleDuplicateOf, ...rest } = item;
       return rest;
     }
@@ -567,6 +575,62 @@ function fetchKeyword(keyword, since, onProgress = () => {}) {
   return fetchByParams({ q: keyword }, since, onProgress);
 }
 
+function normalizeJoafeRecord(record) {
+  const codes = record.domaine_activite_categorise || [];
+  const sportCode = codes.find(code => code.startsWith(JOAFE_SPORT_FAMILY_PREFIX));
+  const keywords = findSportKeywords(`${record.titre || ""} ${record.objet || ""}`);
+  const priority = sportCode ? "Élevée" : keywords.length ? "Moyenne" : "Faible";
+  const reason = sportCode
+    ? `Activité sportive déclarée au Journal officiel (${sportCode})`
+    : keywords.length
+      ? `Mot(s)-clé(s) : ${keywords.join(", ")}`
+      : "Aucun indice sportif détecté dans l'objet déclaré, à vérifier";
+  return {
+    siret: "",
+    siren: "",
+    rna: record.numero_rna || "",
+    name: record.titre || "Association sans titre",
+    commune: record.commune_actuelle || "Non renseignée",
+    postalCode: record.codepostal_actuel || "",
+    activity: "Association (Journal officiel)",
+    creationDate: (record.dateparution || record.datedeclaration || "").slice(0, 10),
+    association: true,
+    object: record.objet || "",
+    reason,
+    source: "JOAFE",
+    priority,
+    decision: "À qualifier"
+  };
+}
+
+async function fetchJoafe(since, onProgress = () => {}) {
+  const items = [];
+  let offset = 0;
+  let total = Infinity;
+  let page = 0;
+  do {
+    page += 1;
+    onProgress(page);
+    const params = new URLSearchParams({
+      where: `departement_code="21" and typeavis="Création" and dateparution>="${since}"`,
+      order_by: "dateparution desc",
+      limit: String(JOAFE_PAGE_SIZE),
+      offset: String(offset)
+    });
+    const response = await requestWithRetry(`${JOAFE_API_BASE}?${params}`);
+    if (!response.ok) throw new Error(`La source Journal officiel a répondu ${response.status}`);
+    const payload = await response.json();
+    total = Number(payload.total_count || 0);
+    for (const record of payload.results || []) {
+      const item = normalizeJoafeRecord(record);
+      if (item.postalCode.startsWith("21")) items.push(item);
+    }
+    offset += JOAFE_PAGE_SIZE;
+    if (offset < total) await wait(REQUEST_DELAY_MS);
+  } while (offset < total && offset < JOAFE_PAGE_SIZE * MAX_API_PAGES);
+  return { items, truncated: offset < total };
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 }
@@ -601,7 +665,7 @@ function render(state, query = "") {
   document.querySelector("#results-body").innerHTML = filtered.map(item => `
     <tr>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td>${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
@@ -635,7 +699,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord }
 });
 
 if (typeof document !== "undefined") {
@@ -659,33 +723,41 @@ if (typeof document !== "undefined") {
     button.textContent = "Recherche en cours…";
     showMessage("Consultation des activités sportives en Côte-d'Or…");
     try {
+      const totalSteps = SPORTS_CODES.length + 2;
       const batches = [];
       let incompleteCount = 0;
       for (const [index, code] of SPORTS_CODES.entries()) {
-        button.textContent = `Recherche ${index + 1}/${SPORTS_CODES.length + 1} — ${code}…`;
+        button.textContent = `Recherche ${index + 1}/${totalSteps} — ${code}…`;
         const { items, truncated } = await fetchCode(code, sinceInput.value, (_code, page, pages) => {
-          if (pages > 1) button.textContent = `Recherche ${index + 1}/${SPORTS_CODES.length + 1} — ${code}, page ${page}/${pages}…`;
+          if (pages > 1) button.textContent = `Recherche ${index + 1}/${totalSteps} — ${code}, page ${page}/${pages}…`;
         });
         batches.push(items);
         if (truncated) incompleteCount += 1;
         await wait(REQUEST_DELAY_MS);
       }
-      button.textContent = `Recherche ${SPORTS_CODES.length + 1}/${SPORTS_CODES.length + 1} — noms évoquant le sport…`;
+      button.textContent = `Recherche ${SPORTS_CODES.length + 1}/${totalSteps} — noms évoquant le sport…`;
       const { items: keywordItems, truncated: keywordTruncated } = await fetchKeyword(COMPLEMENTARY_KEYWORD, sinceInput.value, (page, pages) => {
-        if (pages > 1) button.textContent = `Recherche ${SPORTS_CODES.length + 1}/${SPORTS_CODES.length + 1} — noms évoquant le sport, page ${page}/${pages}…`;
+        if (pages > 1) button.textContent = `Recherche ${SPORTS_CODES.length + 1}/${totalSteps} — noms évoquant le sport, page ${page}/${pages}…`;
       });
       if (keywordTruncated) incompleteCount += 1;
       const keywordBatch = keywordItems.map(markKeywordFallback);
+      await wait(REQUEST_DELAY_MS);
+
+      button.textContent = `Recherche ${totalSteps}/${totalSteps} — associations publiées au Journal officiel…`;
+      const { items: joafeItems, truncated: joafeTruncated } = await fetchJoafe(sinceInput.value, page => {
+        if (page > 1) button.textContent = `Recherche ${totalSteps}/${totalSteps} — Journal officiel, page ${page}…`;
+      });
+      if (joafeTruncated) incompleteCount += 1;
 
       const previous = new Map(state.items.map(item => [item.siret || `rna:${item.rna}`, item]));
       // Les anciens résultats sont mis en premier : ils sont conservés même si la nouvelle recherche
       // porte sur une période plus courte, et les nouveaux résultats (mêmes clé) les mettent à jour.
-      state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat()]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision })));
+      state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat(), ...joafeItems]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision })));
       state.lastSync = new Date().toISOString();
       saveState(state);
       render(state, document.querySelector("#filter-input").value);
-      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées.`;
-      if (incompleteCount > 0) summary += " Attention : pour au moins une activité, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
+      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
+      if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
       showMessage(summary);
     } catch (error) {
       showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion Internet ou réessayez dans quelques minutes.`, true);

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -178,6 +178,35 @@ test("flagProbableDuplicates does not flag distinct clubs in different communes"
 test("daysSince returns Infinity for a missing date and a positive count otherwise", () => {
   assert.equal(daysSince(null), Infinity);
   assert.ok(daysSince(new Date(Date.now() - 5 * 86400000).toISOString()) >= 4.9);
+});
+
+test("normalizeJoafeRecord recognizes the sport family code (11000/...) from the Journal officiel", () => {
+  const record = {
+    titre: "BADMINTON CLUB SAINT SEINE L'ABBAYE",
+    objet: "promouvoir la pratique du badminton",
+    domaine_activite_categorise: ["11000/11030"],
+    commune_actuelle: "Saint-Seine-l'Abbaye",
+    codepostal_actuel: "21440",
+    dateparution: "2026-08-25",
+    numero_rna: "W212000001"
+  };
+  const item = normalizeJoafeRecord(record);
+  assert.equal(item.priority, "Élevée");
+  assert.equal(item.source, "JOAFE");
+  assert.equal(item.commune, "Saint-Seine-l'Abbaye");
+  assert.equal(item.creationDate, "2026-08-25");
+});
+
+test("normalizeJoafeRecord falls back to keywords, then to low priority, for non-sport activity codes", () => {
+  const withKeyword = normalizeJoafeRecord({
+    titre: "NGR SPORT", objet: "association sportive", domaine_activite_categorise: ["11000/11192"], codepostal_actuel: "21000"
+  });
+  assert.equal(withKeyword.priority, "Élevée");
+
+  const noIndicator = normalizeJoafeRecord({
+    titre: "UNION FRATERNELLE DES ANCIENS COMBATTANTS", objet: "entraide et devoir de mémoire", domaine_activite_categorise: ["36000/36510"], codepostal_actuel: "21000"
+  });
+  assert.equal(noIndicator.priority, "Faible");
 });
 
 test("isFutureDate flags a declared creation date that hasn't happened yet", () => {

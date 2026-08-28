@@ -23,8 +23,17 @@ L'application appelle l'API publique Recherche d'entreprises depuis le navigateu
 - reprise sur trente jours au premier lancement ; ensuite, chaque recherche revérifie aussi les 15 jours précédant la dernière recherche, pour absorber le délai de publication des données Sirene (une structure peut être indexée plusieurs jours après sa création réelle) ;
 - appels API séquentiels et nouvelle tentative automatique lorsque la source répond `429` ;
 - détection des associations lorsque l'information est fournie par l'API ;
-- import local d'un export CSV du RNA, filtré sur la Côte-d'Or, la période et l'absence de dissolution ;
+- recherche automatique complémentaire des créations d'associations au **Journal officiel des associations (JOAFE)**, en plus des codes NAF Sirene ;
+- import local d'un export CSV du RNA, filtré sur la Côte-d'Or, la période et l'absence de dissolution, en complément (facultatif) ;
 - qualification locale et sauvegarde en CSV.
+
+### Recherche automatique au Journal officiel des associations (JOAFE)
+
+En plus de Sirene, chaque clic sur « Rechercher les nouveautés » interroge aussi l'**API publique du Journal officiel des associations** (`journal-officiel-datadila.opendatasoft.com`, jeu de données `jo_associations`), gratuite et sans clé, pour récupérer les créations d'associations en Côte-d'Or publiées depuis la date choisie. C'est la source la plus fraîche disponible : les annonces y apparaissent en général quelques jours après leur publication, bien avant que le fichier RNA (mis à jour périodiquement) ne les intègre.
+
+Le niveau de confiance suit la même logique que pour le RNA : la catégorie d'activité renvoyée par le Journal officiel (`domaine_activite_categorise`) utilise la même nomenclature que WALDEC (préfixe `11000/` pour la famille « Sports, activités de plein air », équivalent du préfixe WALDEC `011`) et donne une confiance Élevée ; à défaut, un mot-clé sportif dans l'objet donne une confiance Moyenne ; sans aucun indice, la ligne reste visible en confiance Faible.
+
+L'import RNA manuel reste utile en complément (recoupement, données plus anciennes), mais n'est plus la seule source pour les associations : sans lui, la recherche automatique couvre déjà les nouvelles créations.
 
 ### Codes NAF surveillés et raison de leur inclusion/exclusion
 
