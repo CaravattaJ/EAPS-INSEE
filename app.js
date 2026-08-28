@@ -147,23 +147,31 @@ function firstValue(record, names) {
 
 function normalizeRnaDate(value) {
   const french = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value || "");
-  if (french) return `${french[3]}-${french[2]}-${french[1]}`;
-  return (value || "").slice(0, 10);
+  const isoDate = french ? `${french[3]}-${french[2]}-${french[1]}` : (value || "").slice(0, 10);
+  // Le fichier "rna_import" utilise 0001-01-01 comme valeur par défaut quand la date est inconnue :
+  // on la traite comme une date manquante plutôt que comme une exclusion injustifiée.
+  return isoDate === "0001-01-01" ? "" : isoDate;
 }
+
+const RNA_POSTAL_CODE_HEADERS = ["adrs_codepostal", "code_postal", "codepostal"];
+const RNA_TITLE_HEADERS = ["titre", "titre_court", "nom"];
 
 function extractRnaItems(text, since) {
   const delimiter = (text.split(/\r?\n/, 1)[0].match(/;/g) || []).length >= (text.split(/\r?\n/, 1)[0].match(/,/g) || []).length ? ";" : ",";
   const rows = parseDelimited(text.replace(/^﻿/, ""), delimiter);
   if (rows.length < 2) throw new Error("Le fichier RNA est vide ou son format n'est pas reconnu");
   const headers = rows.shift().map(value => normalizeText(value.trim()));
+  if (!headers.some(header => RNA_POSTAL_CODE_HEADERS.includes(header)) || !headers.some(header => RNA_TITLE_HEADERS.includes(header))) {
+    throw new Error(`Les colonnes attendues (code postal, titre...) n'ont pas été reconnues dans ce fichier. Colonnes trouvées : ${headers.join(", ") || "aucune"}. Vérifiez qu'il s'agit bien d'un export RNA officiel (fichier « waldec » ou « import »)`);
+  }
   return deduplicate(rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]))).map(record => {
-    const title = firstValue(record, ["titre", "titre_court", "nom"]);
+    const title = firstValue(record, RNA_TITLE_HEADERS);
     const object = firstValue(record, ["objet", "objet_social"]);
     const waldecCodes = [firstValue(record, ["objet_social1"]), firstValue(record, ["objet_social2"])].filter(Boolean);
     const sportWaldecCode = waldecCodes.find(code => code.startsWith(WALDEC_SPORT_PREFIX));
     const keywords = findSportKeywords(`${title} ${object}`);
     const creationDate = normalizeRnaDate(firstValue(record, ["date_creat", "date_creation", "date_decla", "date_declaration"]));
-    const postalCode = firstValue(record, ["adrs_codepostal", "code_postal", "codepostal"]);
+    const postalCode = firstValue(record, RNA_POSTAL_CODE_HEADERS);
     const dissolution = firstValue(record, ["date_disso", "date_dissolution"]);
     if (!postalCode.startsWith("21") || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
     const priority = sportWaldecCode ? "Élevée" : keywords.length ? "Moyenne" : "Faible";
@@ -177,7 +185,7 @@ function extractRnaItems(text, since) {
       siren: "",
       rna: firstValue(record, ["id", "rna", "numero_rna", "id_ex"]),
       name: title || "Association sans titre",
-      commune: firstValue(record, ["adrs_libcommune", "libelle_commune", "commune"]) || "Non renseignée",
+      commune: firstValue(record, ["adrs_libcommune", "libelle_commune", "libcom", "commune"]) || "Non renseignée",
       postalCode,
       activity: "Objet associatif",
       creationDate,

@@ -57,6 +57,14 @@ L'import RNA accepte les noms de colonnes courants des exports officiels (`id`, 
 
 Les colonnes `objet_social1` et `objet_social2` portent l'objet social de l'association selon la **nomenclature WALDEC** du ministère de l'Intérieur (codes à 6 chiffres). Tout code commençant par `011` appartient à la famille « Sports, activités de plein air » (ex. `011075` football, `011140` judo, `011125` natation, `011190` gestion d'équipements sportifs...) et donne une confiance Élevée. Si ces colonnes sont absentes ou vides dans l'export, l'application se rabat sur une recherche de mots-clés sportifs dans le titre/l'objet (confiance Moyenne). Les associations de Côte-d'Or dans la période, non dissoutes, mais sans aucun de ces deux indices sont désormais conservées avec une confiance Faible plutôt que d'être écartées silencieusement.
 
+**Deux formats d'export officiels existent, avec des noms de colonnes différents** (fiche technique du ministère de l'Intérieur, `RNA_Liste_donnees_diffusees`) :
+- `rna_waldec_...` (situation actuelle) : commune = `adrs_libcommune`.
+- `rna_import_...` (historique cumulatif) : commune = `libcom`, et la date de création vaut `0001-01-01` quand elle est inconnue (l'application traite alors cette date comme absente, sans exclure la ligne).
+
+L'application reconnaît les deux formats. Si un fichier utilise des noms de colonnes différents de ceux attendus (code postal, titre), un message d'erreur explicite liste les colonnes détectées dans le fichier, pour diagnostiquer rapidement un export non reconnu plutôt que d'afficher silencieusement 0 résultat.
+
+**Délai de mise à jour du RNA :** l'export RNA n'est pas mis à jour en temps réel. Une association tout juste publiée au Journal officiel peut ne pas encore apparaître dans l'export téléchargé le même mois — c'est un délai propre à la source, pas un bug de l'application. En cas de doute, comparez la date de votre export avec la date de publication au Journal officiel des associations que vous consultez.
+
 ### Doublons entre Sirene et le fichier RNA
 
 La fusion automatique des résultats se fait sur le SIRET (ou le numéro RNA à défaut). Une association présente à la fois dans les résultats Sirene et dans un import RNA sans SIRET renseigné dans l'export apparaît donc comme deux lignes distinctes. Pour limiter le risque d'oubli, l'application compare aussi le nom et le code postal des associations : en cas de correspondance probable, un avertissement « Peut-être déjà vue ailleurs » s'affiche sur la ligne RNA concernée, pointant vers l'autre ligne — sans jamais fusionner automatiquement (pour éviter de mélanger deux structures différentes portant un nom proche).
