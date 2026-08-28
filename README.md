@@ -6,7 +6,7 @@ Prototype sans installation et sans dépendance npm pour repérer les établisse
 
 Sous Windows, double-cliquer sur `ouvrir-veille-sports.bat`. Il est également possible d'ouvrir directement `index.html` dans un navigateur récent. Aucun droit administrateur et aucune installation ne sont nécessaires : l'application fonctionne sur un poste Windows standard sans droits administrateur (c'est un simple fichier HTML ouvert dans le navigateur).
 
-> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser le domaine `recherche-entreprises.api.gouv.fr` (seule dépendance réseau de l'application).
+> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), ainsi que `unpkg.com` et `tile.openstreetmap.org` (bibliothèque et fond de carte).
 
 `index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css` ou `app.js` sont absents du dossier téléchargé.
 
@@ -18,7 +18,7 @@ L'application appelle l'API publique Recherche d'entreprises depuis le navigateu
 
 ## Périmètre de cette version
 
-- département 21 ;
+- un ou plusieurs départements de Bourgogne-Franche-Comté, au choix (par défaut, seule la Côte-d'Or) ;
 - établissements actifs ;
 - reprise sur trente jours au premier lancement ; ensuite, chaque recherche revérifie aussi les 15 jours précédant la dernière recherche, pour absorber le délai de publication des données Sirene (une structure peut être indexée plusieurs jours après sa création réelle) ;
 - appels API séquentiels et nouvelle tentative automatique lorsque la source répond `429` ;
@@ -91,6 +91,23 @@ L'INSEE enregistre parfois une « date de création » qui correspond à une dat
 ### Alertes de fraîcheur
 
 Deux avertissements s'affichent indépendamment si vous n'avez pas relancé les recherches depuis plus de 10 jours : un pour la recherche automatique (Sirene), un pour l'import manuel du fichier RNA.
+
+### Départements et évolution régionale
+
+Le sélecteur « Départements » (à côté du champ de date) permet de choisir un ou plusieurs départements parmi les huit de la région Bourgogne-Franche-Comté (21, 25, 39, 58, 70, 71, 89, 90) — maintenez Ctrl/Cmd enfoncé pour en sélectionner plusieurs. Par défaut, seule la Côte-d'Or (21) est sélectionnée. La sélection est mémorisée d'une session à l'autre. Les recherches Sirene et Journal officiel interrogent tous les départements choisis en un seul appel ; l'import RNA filtre également sur ces départements.
+
+### Carte et géolocalisation
+
+Une carte (fond OpenStreetMap, bibliothèque Leaflet) affiche les structures actuellement visibles à l'écran (elle respecte le filtre de recherche et la case « Masquer les « Faible » », mais montre toutes les pages, pas seulement la page affichée). Un point coloré par niveau de confiance apparaît pour chaque structure dont la position est connue :
+- Sirene fournit directement les coordonnées de l'établissement ;
+- le Journal officiel fournit directement les coordonnées de l'association (`geo_point`) ;
+- pour un import RNA (qui ne contient pas de coordonnées), l'application géolocalise chaque nouvelle association au niveau de sa commune via l'**API Adresse (BAN)** du gouvernement (`api-adresse.data.gouv.fr`, gratuite et sans clé). Cette position est celle du centre de la commune, pas l'adresse exacte du siège.
+
+Une structure sans position connue (échec de géolocalisation, commune non reconnue) n'apparaît simplement pas sur la carte — elle reste visible normalement dans le tableau.
+
+### Pagination
+
+Le tableau affiche 25 résultats par page, avec des boutons Précédent/Suivant et un indicateur de page sous le tableau. Changer le filtre, le tri, la case « Masquer les « Faible » » ou relancer une recherche/un import ramène automatiquement à la première page.
 
 ### Autres sources envisagées, non encore intégrées
 

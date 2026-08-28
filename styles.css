@@ -173,6 +173,21 @@ tbody tr:hover { background: #fbfcff; }
 .empty-state p { margin: 0; }
 .empty-icon { color: #90a0c5; font-size: 2.4rem; }
 
+.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px 24px; border-top: 1px solid var(--border); }
+
+.map-card { margin-top: 18px; padding: 24px; }
+.map-help { margin: 0 0 14px; }
+#map { height: 420px; border-radius: 10px; border: 1px solid var(--border); }
+
+#department-select {
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid #c8cfdd;
+  border-radius: 8px;
+  background: white;
+  color: var(--text);
+}
+
 .settings-card { margin-top: 18px; padding: 18px 22px; }
 .settings-card summary { color: var(--navy); cursor: pointer; font-weight: 750; }
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(200px, 320px)); gap: 18px; margin-top: 18px; }
@@ -192,4 +207,6 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
   .since-field { max-width: none; }
   .settings-grid { grid-template-columns: 1fr; }
   footer { flex-direction: column; }
+  #map { height: 280px; }
+  .pagination { flex-direction: column; gap: 10px; }
 }

@@ -14,6 +14,19 @@ const COMPLEMENTARY_KEYWORD = "sport";
 const JOAFE_API_BASE = "https://journal-officiel-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/jo_associations/records";
 const JOAFE_PAGE_SIZE = 100;
 const JOAFE_SPORT_FAMILY_PREFIX = "11000/";
+const BAN_API_BASE = "https://api-adresse.data.gouv.fr/search/";
+const PAGE_SIZE = 25;
+const DEPARTMENTS = [
+  { code: "21", label: "Côte-d'Or" },
+  { code: "25", label: "Doubs" },
+  { code: "39", label: "Jura" },
+  { code: "58", label: "Nièvre" },
+  { code: "70", label: "Haute-Saône" },
+  { code: "71", label: "Saône-et-Loire" },
+  { code: "89", label: "Yonne" },
+  { code: "90", label: "Territoire de Belfort" }
+];
+const DEFAULT_DEPARTMENTS = ["21"];
 const SPORT_KEYWORDS = [
   "sport", "football", "futsal", "rugby", "handball", "basket", "volley", "judo", "karate", "karaté",
   "aikido", "aïkido", "boxe", "gymnastique", "fitness", "musculation", "natation", "plongee", "plongée",
@@ -46,6 +59,20 @@ function priorityForCode(code) {
   return "Faible";
 }
 
+function isInDepartments(postalCode, departments = DEFAULT_DEPARTMENTS) {
+  return departments.some(code => postalCode.startsWith(code));
+}
+
+function departmentsLabel(departments = DEFAULT_DEPARTMENTS) {
+  const labels = departments.map(code => DEPARTMENTS.find(department => department.code === code)?.label || code);
+  return labels.length <= 2 ? labels.join(" et ") : `${labels.length} départements sélectionnés`;
+}
+
+function toCoordinate(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function normalizeResult(result, establishment, code) {
   const siege = result.siege || {};
   const item = establishment || siege;
@@ -60,17 +87,19 @@ function normalizeResult(result, establishment, code) {
     creationDate: item.date_creation || result.date_creation || "",
     association: Boolean(result.complements?.est_association),
     rna: result.identifiant_association || result.complements?.identifiant_association || "",
-    priority: priorityForCode(item.activite_principale || code)
+    priority: priorityForCode(item.activite_principale || code),
+    lat: toCoordinate(item.latitude),
+    lon: toCoordinate(item.longitude)
   };
 }
 
-function extractItems(payload, code, since) {
+function extractItems(payload, code, since, departments = DEFAULT_DEPARTMENTS) {
   const items = [];
   for (const result of payload.results || []) {
     const matches = result.matching_etablissements?.length ? result.matching_etablissements : [result.siege];
     for (const establishment of matches.filter(Boolean)) {
       const normalized = normalizeResult(result, establishment, code);
-      if (normalized.postalCode.startsWith("21") && isAfter(normalized.creationDate, since)) items.push(normalized);
+      if (isInDepartments(normalized.postalCode, departments) && isAfter(normalized.creationDate, since)) items.push(normalized);
     }
   }
   return items;
@@ -161,7 +190,7 @@ function normalizeRnaDate(value) {
 const RNA_POSTAL_CODE_HEADERS = ["adrs_codepostal", "code_postal", "codepostal"];
 const RNA_TITLE_HEADERS = ["titre", "titre_court", "nom"];
 
-function extractRnaItems(text, since) {
+function extractRnaItems(text, since, departments = DEFAULT_DEPARTMENTS) {
   const delimiter = (text.split(/\r?\n/, 1)[0].match(/;/g) || []).length >= (text.split(/\r?\n/, 1)[0].match(/,/g) || []).length ? ";" : ",";
   const rows = parseDelimited(text.replace(/^﻿/, ""), delimiter);
   if (rows.length < 2) throw new Error("Le fichier RNA est vide ou son format n'est pas reconnu");
@@ -182,7 +211,7 @@ function extractRnaItems(text, since) {
     const creationDate = normalizeRnaDate(firstValue(record, ["date_creat", "date_creation", "date_publi", "date_publication"]));
     const postalCode = firstValue(record, RNA_POSTAL_CODE_HEADERS);
     const dissolution = firstValue(record, ["date_disso", "date_dissolution"]);
-    if (!postalCode.startsWith("21") || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
+    if (!isInDepartments(postalCode, departments) || dissolution || (creationDate && !isAfter(creationDate, since))) return null;
     const priority = sportWaldecCode ? "Élevée" : keywords.length ? "Moyenne" : "Faible";
     const reason = sportWaldecCode
       ? `Objet social sportif déclaré (code ${sportWaldecCode})`
@@ -202,7 +231,9 @@ function extractRnaItems(text, since) {
       object,
       reason,
       source: "RNA",
-      priority
+      priority,
+      lat: null,
+      lon: null
     };
   }).filter(item => item && (item.rna || item.siret)));
 }
@@ -234,14 +265,14 @@ async function requestWithRetry(url, fetchImplementation = fetch, waitImplementa
   throw new Error("L'API limite temporairement les recherches (erreur 429). Attendez une minute puis réessayez");
 }
 
-async function fetchByParams(extraParams, since, onProgress = () => {}) {
+async function fetchByParams(extraParams, since, departments = DEFAULT_DEPARTMENTS, onProgress = () => {}) {
   const items = [];
   let page = 1;
   let pages = 1;
   do {
     onProgress(page, pages);
     const params = new URLSearchParams({
-      departement: "21",
+      departement: departments.join(","),
       etat_administratif: "A",
       date_creation_min: since,
       per_page: "25",
@@ -251,7 +282,7 @@ async function fetchByParams(extraParams, since, onProgress = () => {}) {
     const response = await requestWithRetry(`${API_BASE}?${params}`);
     if (!response.ok) throw new Error(`La source a répondu ${response.status}`);
     const payload = await response.json();
-    items.push(...extractItems(payload, extraParams.activite_principale || "", since));
+    items.push(...extractItems(payload, extraParams.activite_principale || "", since, departments));
     pages = Math.min(Number(payload.total_pages || 1), MAX_API_PAGES);
     page += 1;
     if (page <= pages) await wait(REQUEST_DELAY_MS);
@@ -259,12 +290,12 @@ async function fetchByParams(extraParams, since, onProgress = () => {}) {
   return { items, truncated: pages >= MAX_API_PAGES };
 }
 
-function fetchCode(code, since, onProgress = () => {}) {
-  return fetchByParams({ activite_principale: code }, since, (page, pages) => onProgress(code, page, pages));
+function fetchCode(code, since, departments, onProgress = () => {}) {
+  return fetchByParams({ activite_principale: code }, since, departments, (page, pages) => onProgress(code, page, pages));
 }
 
-function fetchKeyword(keyword, since, onProgress = () => {}) {
-  return fetchByParams({ q: keyword }, since, onProgress);
+function fetchKeyword(keyword, since, departments, onProgress = () => {}) {
+  return fetchByParams({ q: keyword }, since, departments, onProgress);
 }
 
 function normalizeJoafeRecord(record) {
@@ -277,6 +308,7 @@ function normalizeJoafeRecord(record) {
     : keywords.length
       ? `Mot(s)-clé(s) : ${keywords.join(", ")}`
       : "Aucun indice sportif détecté dans l'objet déclaré, à vérifier";
+  const [lat = null, lon = null] = record.geo_point || [];
   return {
     siret: "",
     siren: "",
@@ -290,11 +322,18 @@ function normalizeJoafeRecord(record) {
     object: record.objet || "",
     reason,
     source: "JOAFE",
-    priority
+    priority,
+    lat: toCoordinate(lat),
+    lon: toCoordinate(lon)
   };
 }
 
-async function fetchJoafe(since, onProgress = () => {}) {
+function joafeWhereClause(since, departments = DEFAULT_DEPARTMENTS) {
+  const departmentList = departments.map(code => `"${code}"`).join(",");
+  return `departement_code in (${departmentList}) and typeavis="Création" and dateparution>="${since}"`;
+}
+
+async function fetchJoafe(since, departments = DEFAULT_DEPARTMENTS, onProgress = () => {}) {
   const items = [];
   let offset = 0;
   let total = Infinity;
@@ -303,7 +342,7 @@ async function fetchJoafe(since, onProgress = () => {}) {
     page += 1;
     onProgress(page);
     const params = new URLSearchParams({
-      where: `departement_code="21" and typeavis="Création" and dateparution>="${since}"`,
+      where: joafeWhereClause(since, departments),
       order_by: "dateparution desc",
       limit: String(JOAFE_PAGE_SIZE),
       offset: String(offset)
@@ -314,12 +353,30 @@ async function fetchJoafe(since, onProgress = () => {}) {
     total = Number(payload.total_count || 0);
     for (const record of payload.results || []) {
       const item = normalizeJoafeRecord(record);
-      if (item.postalCode.startsWith("21")) items.push(item);
+      if (isInDepartments(item.postalCode, departments)) items.push(item);
     }
     offset += JOAFE_PAGE_SIZE;
     if (offset < total) await wait(REQUEST_DELAY_MS);
   } while (offset < total && offset < JOAFE_PAGE_SIZE * MAX_API_PAGES);
   return { items, truncated: offset < total };
+}
+
+async function geocodeCommune(commune, postalCode, fetchImplementation = fetch) {
+  const params = new URLSearchParams({ q: commune, postcode: postalCode, type: "municipality", limit: "1" });
+  const response = await fetchImplementation(`${BAN_API_BASE}?${params}`);
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const feature = payload.features?.[0];
+  if (!feature) return null;
+  const [lon, lat] = feature.geometry.coordinates;
+  return { lat: toCoordinate(lat), lon: toCoordinate(lon) };
+}
+
+function paginate(items, page, pageSize = PAGE_SIZE) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  return { pageItems: items.slice(start, start + pageSize), currentPage, totalPages, total: items.length };
 }
 
 function escapeHtml(value) {
@@ -357,10 +414,11 @@ function sortItems(items, column, direction = "asc") {
 }
 
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc" } = options;
+  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
   filtered = sortItems(filtered, sortColumn, sortDirection);
+  const { pageItems, currentPage, totalPages, total } = paginate(filtered, page, pageSize);
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
   document.querySelector("#new-count").textContent = state.items.length;
   document.querySelector("#pending-count").textContent = state.items.filter(item => item.priority === "Faible").length;
@@ -374,7 +432,13 @@ function render(state, query = "", options = {}) {
     button.classList.toggle("sort-active", button.dataset.sort === sortColumn);
     button.dataset.sortDirection = button.dataset.sort === sortColumn ? sortDirection : "";
   });
-  document.querySelector("#results-body").innerHTML = filtered.map(item => `
+  const pageIndicator = document.querySelector("#page-indicator");
+  if (pageIndicator) pageIndicator.textContent = total === 0 ? "" : `Page ${currentPage} / ${totalPages} (${total} résultat(s))`;
+  const prevButton = document.querySelector("#prev-page-button");
+  if (prevButton) prevButton.disabled = currentPage <= 1;
+  const nextButton = document.querySelector("#next-page-button");
+  if (nextButton) nextButton.disabled = currentPage >= totalPages;
+  document.querySelector("#results-body").innerHTML = pageItems.map(item => `
     <tr>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
       <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
@@ -382,6 +446,7 @@ function render(state, query = "", options = {}) {
       <td>${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
     </tr>`).join("");
+  return { currentPage, mapItems: filtered };
 }
 
 function showMessage(text, error = false) {
@@ -410,28 +475,82 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS }
 });
+
+function readSelectedDepartments(select) {
+  const values = Array.from(select.selectedOptions).map(option => option.value);
+  return values.length ? values : DEFAULT_DEPARTMENTS;
+}
+
+const PRIORITY_MAP_COLORS = { "Élevée": "#b42318", "Moyenne": "#9a6700", "Faible": "#667085" };
 
 if (typeof document !== "undefined") {
   const state = loadState();
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");
   const hideLowInput = document.querySelector("#hide-low-input");
+  const departmentSelect = document.querySelector("#department-select");
+  const prevPageButton = document.querySelector("#prev-page-button");
+  const nextPageButton = document.querySelector("#next-page-button");
   let sortColumn = null;
   let sortDirection = "asc";
-  const renderNow = () => render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection });
+  let page = 1;
+
+  let map = null;
+  let markerLayer = null;
+  if (typeof L !== "undefined" && document.querySelector("#map")) {
+    map = L.map("map").setView([47.05, 4.85], 8);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+      maxZoom: 18
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+  }
+
+  function updateMap(items) {
+    if (!markerLayer) return;
+    markerLayer.clearLayers();
+    for (const item of items) {
+      if (typeof item.lat !== "number" || typeof item.lon !== "number") continue;
+      L.circleMarker([item.lat, item.lon], {
+        radius: 7,
+        color: PRIORITY_MAP_COLORS[item.priority] || PRIORITY_MAP_COLORS["Faible"],
+        weight: 2,
+        fillOpacity: 0.75
+      })
+        .bindPopup(`<strong>${escapeHtml(item.name)}</strong><br>${escapeHtml(item.commune)} (${escapeHtml(item.postalCode)})<br>${escapeHtml(item.activity)}<br>Créée le ${formatDate(item.creationDate)}`)
+        .addTo(markerLayer);
+    }
+  }
+
+  const renderNow = () => {
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page });
+    page = currentPage;
+    updateMap(mapItems);
+  };
+
+  if (Array.isArray(state.departments) && state.departments.length) {
+    Array.from(departmentSelect.options).forEach(option => { option.selected = state.departments.includes(option.value); });
+  }
 
   sinceInput.value = state.lastSync ? new Date(new Date(state.lastSync).getTime() - RECOVERY_DAYS * 86400000).toISOString().slice(0, 10) : defaultSince();
   renderNow();
 
-  hideLowInput.addEventListener("change", renderNow);
-  filterInput.addEventListener("input", renderNow);
+  hideLowInput.addEventListener("change", () => { page = 1; renderNow(); });
+  filterInput.addEventListener("input", () => { page = 1; renderNow(); });
+  departmentSelect.addEventListener("change", () => {
+    state.departments = readSelectedDepartments(departmentSelect);
+    saveState(state);
+  });
+  prevPageButton.addEventListener("click", () => { page -= 1; renderNow(); });
+  nextPageButton.addEventListener("click", () => { page += 1; renderNow(); });
   document.querySelectorAll(".sort-button").forEach(button => {
     button.addEventListener("click", () => {
       const column = button.dataset.sort;
       sortDirection = sortColumn === column && sortDirection === "asc" ? "desc" : "asc";
       sortColumn = column;
+      page = 1;
       renderNow();
     });
   });
@@ -447,16 +566,17 @@ if (typeof document !== "undefined") {
 
   document.querySelector("#search-button").addEventListener("click", async event => {
     const button = event.currentTarget;
+    const departments = readSelectedDepartments(departmentSelect);
     button.disabled = true;
     button.textContent = "Recherche en cours…";
-    showMessage("Consultation des activités sportives en Côte-d'Or…");
+    showMessage(`Consultation des activités sportives en ${departmentsLabel(departments)}…`);
     try {
       const totalSteps = SPORTS_CODES.length + 2;
       const batches = [];
       let incompleteCount = 0;
       for (const [index, code] of SPORTS_CODES.entries()) {
         button.textContent = `Recherche ${index + 1}/${totalSteps} — ${code}…`;
-        const { items, truncated } = await fetchCode(code, sinceInput.value, (_code, page, pages) => {
+        const { items, truncated } = await fetchCode(code, sinceInput.value, departments, (_code, page, pages) => {
           if (pages > 1) button.textContent = `Recherche ${index + 1}/${totalSteps} — ${code}, page ${page}/${pages}…`;
         });
         batches.push(items);
@@ -464,7 +584,7 @@ if (typeof document !== "undefined") {
         await wait(REQUEST_DELAY_MS);
       }
       button.textContent = `Recherche ${SPORTS_CODES.length + 1}/${totalSteps} — noms évoquant le sport…`;
-      const { items: keywordItems, truncated: keywordTruncated } = await fetchKeyword(COMPLEMENTARY_KEYWORD, sinceInput.value, (page, pages) => {
+      const { items: keywordItems, truncated: keywordTruncated } = await fetchKeyword(COMPLEMENTARY_KEYWORD, sinceInput.value, departments, (page, pages) => {
         if (pages > 1) button.textContent = `Recherche ${SPORTS_CODES.length + 1}/${totalSteps} — noms évoquant le sport, page ${page}/${pages}…`;
       });
       if (keywordTruncated) incompleteCount += 1;
@@ -472,7 +592,7 @@ if (typeof document !== "undefined") {
       await wait(REQUEST_DELAY_MS);
 
       button.textContent = `Recherche ${totalSteps}/${totalSteps} — associations publiées au Journal officiel…`;
-      const { items: joafeItems, truncated: joafeTruncated } = await fetchJoafe(sinceInput.value, page => {
+      const { items: joafeItems, truncated: joafeTruncated } = await fetchJoafe(sinceInput.value, departments, page => {
         if (page > 1) button.textContent = `Recherche ${totalSteps}/${totalSteps} — Journal officiel, page ${page}…`;
       });
       if (joafeTruncated) incompleteCount += 1;
@@ -481,9 +601,11 @@ if (typeof document !== "undefined") {
       // porte sur une période plus courte, et les nouveaux résultats (mêmes clé) les mettent à jour.
       state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat(), ...joafeItems]));
       state.lastSync = new Date().toISOString();
+      state.departments = departments;
       saveState(state);
+      page = 1;
       renderNow();
-      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
+      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées en ${departmentsLabel(departments)} (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
       if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
       showMessage(summary);
     } catch (error) {
@@ -498,12 +620,21 @@ if (typeof document !== "undefined") {
   document.querySelector("#rna-input").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
+    const departments = readSelectedDepartments(departmentSelect);
     showMessage(`Analyse du fichier RNA « ${file.name} »…`);
     try {
-      const imported = extractRnaItems(await file.text(), sinceInput.value);
+      const imported = extractRnaItems(await file.text(), sinceInput.value, departments);
+      for (const item of imported) {
+        try {
+          const coords = await geocodeCommune(item.commune, item.postalCode);
+          if (coords) { item.lat = coords.lat; item.lon = coords.lon; }
+        } catch { /* la géolocalisation est un confort, une erreur ici ne doit pas bloquer l'import */ }
+        await wait(REQUEST_DELAY_MS);
+      }
       state.items = flagProbableDuplicates(deduplicate([...state.items, ...imported]));
       state.lastRnaImport = new Date().toISOString();
       saveState(state);
+      page = 1;
       renderNow();
       showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
     } catch (error) {
