@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -20,11 +20,67 @@ test("priorityForCode ranks sport NAF codes by confidence", () => {
   assert.equal(priorityForCode("47.11Z"), "Faible");
 });
 
+test("isInDepartments matches any of several selected departments", () => {
+  assert.equal(isInDepartments("71000", ["21", "71"]), true);
+  assert.equal(isInDepartments("75001", ["21", "71"]), false);
+  assert.equal(isInDepartments("21000"), true);
+});
+
+test("departmentsLabel names one or two departments, and counts beyond that", () => {
+  assert.equal(departmentsLabel(["21"]), "Côte-d'Or");
+  assert.equal(departmentsLabel(["21", "71"]), "Côte-d'Or et Saône-et-Loire");
+  assert.equal(departmentsLabel(["21", "71", "89"]), "3 départements sélectionnés");
+  assert.equal(DEPARTMENTS.length, 8);
+});
+
+test("joafeWhereClause filters by creation announcements, date and one or more departments", () => {
+  const clause = joafeWhereClause("2026-08-01", ["21", "71"]);
+  assert.match(clause, /departement_code in \("21","71"\)/);
+  assert.match(clause, /typeavis="Création"/);
+  assert.match(clause, /dateparution>="2026-08-01"/);
+});
+
+test("paginate slices items and clamps an out-of-range page", () => {
+  const items = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+  const firstPage = paginate(items, 1, 5);
+  assert.equal(firstPage.pageItems.length, 5);
+  assert.equal(firstPage.totalPages, 3);
+  assert.equal(firstPage.total, 12);
+
+  const outOfRange = paginate(items, 99, 5);
+  assert.equal(outOfRange.currentPage, 3);
+  assert.equal(outOfRange.pageItems.length, 2);
+
+  const empty = paginate([], 1, 5);
+  assert.equal(empty.currentPage, 1);
+  assert.equal(empty.totalPages, 1);
+});
+
+test("geocodeCommune turns a BAN municipality match into lat/lon", async () => {
+  const fakeFetch = async () => ({
+    ok: true,
+    json: async () => ({ features: [{ geometry: { coordinates: [5.033601, 47.331953] } }] })
+  });
+  const coords = await geocodeCommune("Dijon", "21000", fakeFetch);
+  assert.deepEqual(coords, { lat: 47.331953, lon: 5.033601 });
+});
+
+test("geocodeCommune returns null when nothing matches", async () => {
+  const fakeFetch = async () => ({ ok: true, json: async () => ({ features: [] }) });
+  assert.equal(await geocodeCommune("Introuvable", "00000", fakeFetch), null);
+});
+
 test("normalizes an association returned by the API", () => {
   const item = normalizeResult({ siren: "123", nom_complet: "Club test", complements: { est_association: true }, identifiant_association: "W212345678", siege: {} }, { siret: "12300012", activite_principale: "93.12Z", date_creation: "2026-08-10", adresse: { code_postal: "21000", libelle_commune: "DIJON" } }, "93.12Z");
   assert.equal(item.association, true);
   assert.equal(item.rna, "W212345678");
   assert.equal(item.priority, "Élevée");
+});
+
+test("normalizeResult keeps the establishment's coordinates when Sirene provides them", () => {
+  const item = normalizeResult({ siren: "123", nom_complet: "Club test", siege: {} }, { siret: "12300012", activite_principale: "93.12Z", latitude: "47.331953", longitude: "5.033601", adresse: { code_postal: "21000", libelle_commune: "DIJON" } }, "93.12Z");
+  assert.equal(item.lat, 47.331953);
+  assert.equal(item.lon, 5.033601);
 });
 
 test("extracts recent Côte-d'Or establishments only", () => {
@@ -188,13 +244,16 @@ test("normalizeJoafeRecord recognizes the sport family code (11000/...) from the
     commune_actuelle: "Saint-Seine-l'Abbaye",
     codepostal_actuel: "21440",
     dateparution: "2026-08-25",
-    numero_rna: "W212000001"
+    numero_rna: "W212000001",
+    geo_point: [47.439498, 4.788477]
   };
   const item = normalizeJoafeRecord(record);
   assert.equal(item.priority, "Élevée");
   assert.equal(item.source, "JOAFE");
   assert.equal(item.commune, "Saint-Seine-l'Abbaye");
   assert.equal(item.creationDate, "2026-08-25");
+  assert.equal(item.lat, 47.439498);
+  assert.equal(item.lon, 4.788477);
 });
 
 test("normalizeJoafeRecord falls back to keywords, then to low priority, for non-sport activity codes", () => {

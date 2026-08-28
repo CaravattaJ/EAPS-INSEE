@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Repérage local des nouveaux établissements sportifs de Côte-d'Or.">
   <title>Veille Sports 21</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <!-- INLINE_CSS -->
 </head>
 <body>
@@ -29,8 +30,17 @@
             <input id="since-input" type="date">
           </label>
           <label class="since-field">
-            <span>Département</span>
-            <input value="21 — Côte-d'Or" disabled>
+            <span>Départements</span>
+            <select id="department-select" multiple size="4">
+              <option value="21" selected>Côte-d'Or (21)</option>
+              <option value="25">Doubs (25)</option>
+              <option value="39">Jura (39)</option>
+              <option value="58">Nièvre (58)</option>
+              <option value="70">Haute-Saône (70)</option>
+              <option value="71">Saône-et-Loire (71)</option>
+              <option value="89">Yonne (89)</option>
+              <option value="90">Territoire de Belfort (90)</option>
+            </select>
           </label>
         </div>
       </div>
@@ -112,6 +122,22 @@
           <p>Lancez la recherche pour consulter les structures nouvellement détectées.</p>
         </div>
       </div>
+      <div class="pagination">
+        <button id="prev-page-button" class="secondary-button" type="button">← Précédent</button>
+        <span id="page-indicator" class="identifier"></span>
+        <button id="next-page-button" class="secondary-button" type="button">Suivant →</button>
+      </div>
+    </section>
+
+    <section class="card map-card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Localisation</p>
+          <h2>Carte des structures affichées</h2>
+        </div>
+      </div>
+      <p class="help map-help">Les structures sans coordonnées connues n'apparaissent pas sur la carte. La couleur des points reprend le niveau de confiance.</p>
+      <div id="map"></div>
     </section>
 
     <details class="card settings-card">
@@ -119,7 +145,8 @@
       <p class="help">La première recherche remonte par défaut sur 30 jours. Ensuite, chaque nouvelle recherche revérifie aussi les 15 derniers jours avant la date affichée : certaines structures mettent du temps à apparaître dans les données publiques, cela évite de les manquer. Les doublons sont automatiquement retirés.</p>
       <p class="help">En plus des activités sportives connues, une recherche complémentaire est faite sur les noms d'entreprise contenant le mot « sport », pour rattraper les structures mal classées.</p>
       <p class="help"><strong>Associations&nbsp;:</strong> chaque recherche interroge aussi automatiquement les créations d'associations publiées au Journal officiel — c'est la source la plus à jour, pas besoin de fichier à importer.</p>
-      <p class="help"><strong>Import RNA (facultatif)&nbsp;:</strong> pour un recoupement complémentaire, vous pouvez aussi télécharger un export CSV officiel du Répertoire national des associations, puis utiliser «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations de Côte-d'Or correspondant à la période sont ajoutées, classées par niveau de confiance.</p>
+      <p class="help"><strong>Import RNA (facultatif)&nbsp;:</strong> pour un recoupement complémentaire, vous pouvez aussi télécharger un export CSV officiel du Répertoire national des associations, puis utiliser «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations correspondant aux départements et à la période choisis sont ajoutées, classées par niveau de confiance.</p>
+      <p class="help"><strong>Départements&nbsp;:</strong> sélectionnez un ou plusieurs départements dans la liste (Ctrl/Cmd + clic pour en choisir plusieurs) avant de lancer une recherche. Par défaut, seule la Côte-d'Or est sélectionnée.</p>
     </details>
   </main>
 
@@ -128,6 +155,7 @@
     <span>Source : API Recherche d'entreprises</span>
   </footer>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- INLINE_JS -->
 </body>
 </html>
