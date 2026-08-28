@@ -29,19 +29,22 @@
             <span>Chercher les structures créées depuis le</span>
             <input id="since-input" type="date">
           </label>
-          <label class="since-field">
+          <div class="since-field">
             <span>Départements</span>
-            <select id="department-select" multiple size="4">
-              <option value="21" selected>Côte-d'Or (21)</option>
-              <option value="25">Doubs (25)</option>
-              <option value="39">Jura (39)</option>
-              <option value="58">Nièvre (58)</option>
-              <option value="70">Haute-Saône (70)</option>
-              <option value="71">Saône-et-Loire (71)</option>
-              <option value="89">Yonne (89)</option>
-              <option value="90">Territoire de Belfort (90)</option>
-            </select>
-          </label>
+            <details id="department-dropdown" class="department-dropdown">
+              <summary id="department-summary">Côte-d'Or</summary>
+              <div class="department-menu">
+                <label><input type="checkbox" class="department-checkbox" value="21" checked> Côte-d'Or (21)</label>
+                <label><input type="checkbox" class="department-checkbox" value="25"> Doubs (25)</label>
+                <label><input type="checkbox" class="department-checkbox" value="39"> Jura (39)</label>
+                <label><input type="checkbox" class="department-checkbox" value="58"> Nièvre (58)</label>
+                <label><input type="checkbox" class="department-checkbox" value="70"> Haute-Saône (70)</label>
+                <label><input type="checkbox" class="department-checkbox" value="71"> Saône-et-Loire (71)</label>
+                <label><input type="checkbox" class="department-checkbox" value="89"> Yonne (89)</label>
+                <label><input type="checkbox" class="department-checkbox" value="90"> Territoire de Belfort (90)</label>
+              </div>
+            </details>
+          </div>
         </div>
       </div>
       <button id="search-button" class="primary-button" type="button">
@@ -89,6 +92,19 @@
         </div>
       </div>
 
+      <div class="section-heading shared-heading">
+        <div>
+          <p class="eyebrow">Travail en équipe</p>
+          <h2>Liste partagée entre agents</h2>
+        </div>
+        <div class="actions">
+          <button id="load-shared-button" class="secondary-button" type="button">Charger la liste partagée</button>
+          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer sur le partage</button>
+        </div>
+      </div>
+      <p class="help shared-help">Chargez le fichier <code>veille-sports-partage.json</code> depuis votre dossier réseau partagé pour récupérer le travail de vos collègues (fusionné avec le vôtre, sans rien perdre), puis « Enregistrer sur le partage » pour déposer votre propre fichier dans ce même dossier (en écrasant l'ancien). Attention&nbsp;: sans serveur commun, deux enregistrements presque simultanés peuvent se marcher dessus — pensez à recharger avant d'enregistrer si vous n'êtes pas seul(e) à jour.</p>
+
       <aside class="confidence-note" aria-labelledby="confidence-title">
         <div class="confidence-icon" aria-hidden="true">i</div>
         <div>
@@ -112,6 +128,7 @@
               <th><button type="button" class="sort-button" data-sort="commune">Commune</button></th>
               <th><button type="button" class="sort-button" data-sort="activity">Activité</button></th>
               <th><button type="button" class="sort-button" data-sort="creationDate">Création</button></th>
+              <th>Décision</th>
             </tr>
           </thead>
           <tbody id="results-body"></tbody>
@@ -146,7 +163,8 @@
       <p class="help">En plus des activités sportives connues, une recherche complémentaire est faite sur les noms d'entreprise contenant le mot « sport », pour rattraper les structures mal classées.</p>
       <p class="help"><strong>Associations&nbsp;:</strong> chaque recherche interroge aussi automatiquement les créations d'associations publiées au Journal officiel — c'est la source la plus à jour, pas besoin de fichier à importer.</p>
       <p class="help"><strong>Import RNA (facultatif)&nbsp;:</strong> pour un recoupement complémentaire, vous pouvez aussi télécharger un export CSV officiel du Répertoire national des associations, puis utiliser «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations correspondant aux départements et à la période choisis sont ajoutées, classées par niveau de confiance.</p>
-      <p class="help"><strong>Départements&nbsp;:</strong> sélectionnez un ou plusieurs départements dans la liste (Ctrl/Cmd + clic pour en choisir plusieurs) avant de lancer une recherche. Par défaut, seule la Côte-d'Or est sélectionnée.</p>
+      <p class="help"><strong>Départements&nbsp;:</strong> cliquez sur le menu « Départements » et cochez un ou plusieurs départements avant de lancer une recherche. Par défaut, seule la Côte-d'Or est sélectionnée.</p>
+      <p class="help"><strong>Recherches longues&nbsp;:</strong> le site des entreprises ne permet pas de ne demander que les créations récentes, il faut donc parcourir toutes les pages de chaque activité pour ne rien manquer. Avant une recherche longue, l'application estime la durée et vous demande de confirmer.</p>
     </details>
   </main>
 

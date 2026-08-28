@@ -27,6 +27,12 @@ L'application appelle l'API publique Recherche d'entreprises depuis le navigateu
 - import local d'un export CSV du RNA, filtré sur la Côte-d'Or, la période et l'absence de dissolution, en complément (facultatif) ;
 - qualification locale et sauvegarde en CSV.
 
+### L'API Sirene ne filtre pas par date : recherche complète avec estimation de durée
+
+Découverte importante (vérifiée sur la spécification officielle `openapi.json` de l'API Recherche d'entreprises) : **cette API ne propose aucun paramètre de filtre ni de tri par date de création**. Le paramètre `date_creation_min` qui semblait fonctionner dans une version précédente de l'application n'avait en réalité aucun effet — il était silencieusement ignoré par le serveur. L'application a donc toujours dû, et doit encore, parcourir **toutes les pages** de résultats de chaque code NAF/mot-clé pour ne rien manquer, puis filtrer les dates elle-même après coup.
+
+Pour un code très courant (ex. `93.12Z` sur toute la Bourgogne-Franche-Comté), cela peut représenter plusieurs milliers de pages. Avant de lancer une recherche, l'application mesure donc désormais le nombre de pages réellement nécessaires et, si c'est significatif (plus de 40 pages), affiche une estimation de durée et demande confirmation avant de continuer — vous pouvez annuler et réduire la période ou le nombre de départements sélectionnés. En dessous de ce seuil, la recherche démarre directement sans interruption.
+
 ### Recherche automatique au Journal officiel des associations (JOAFE)
 
 En plus de Sirene, chaque clic sur « Rechercher les nouveautés » interroge aussi l'**API publique du Journal officiel des associations** (`journal-officiel-datadila.opendatasoft.com`, jeu de données `jo_associations`), gratuite et sans clé, pour récupérer les créations d'associations en Côte-d'Or publiées depuis la date choisie. C'est la source la plus fraîche disponible : les annonces y apparaissent en général quelques jours après leur publication, bien avant que le fichier RNA (mis à jour périodiquement) ne les intègre.
@@ -88,13 +94,23 @@ L'INSEE enregistre parfois une « date de création » qui correspond à une dat
 
 À chaque nouvelle recherche, les structures déjà connues (Sirene ou RNA) sont conservées même si la nouvelle date choisie est plus tardive que celle d'une recherche précédente — seules les décisions déjà prises restent inchangées, la liste ne fait que grandir. Vous pouvez donc utiliser la recherche Sirene et l'import RNA dans l'ordre que vous voulez, aussi souvent que vous voulez : les deux sources se combinent toujours automatiquement.
 
+### Décisions par structure, et liste partagée entre agents
+
+Chaque structure a de nouveau une décision (menu déroulant : À qualifier, À contrôler, Déjà connu, Pas un lieu de pratique, Hors périmètre). Au premier changement de décision sur un poste, l'application demande une fois le nom ou les initiales de l'agent (mémorisé ensuite sur ce poste) ; chaque décision garde ensuite trace de qui l'a prise et quand (affiché sous le menu, et exporté dans le CSV).
+
+Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune :
+- **« Charger la liste partagée »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats locaux : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
+- **« Enregistrer sur le partage »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
+
+**Limite à connaître** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). Le réflexe à prendre : charger la liste partagée avant de commencer à qualifier des structures, et enregistrer en fin de session.
+
 ### Alertes de fraîcheur
 
 Deux avertissements s'affichent indépendamment si vous n'avez pas relancé les recherches depuis plus de 10 jours : un pour la recherche automatique (Sirene), un pour l'import manuel du fichier RNA.
 
 ### Départements et évolution régionale
 
-Le sélecteur « Départements » (à côté du champ de date) permet de choisir un ou plusieurs départements parmi les huit de la région Bourgogne-Franche-Comté (21, 25, 39, 58, 70, 71, 89, 90) — maintenez Ctrl/Cmd enfoncé pour en sélectionner plusieurs. Par défaut, seule la Côte-d'Or (21) est sélectionnée. La sélection est mémorisée d'une session à l'autre. Les recherches Sirene et Journal officiel interrogent tous les départements choisis en un seul appel ; l'import RNA filtre également sur ces départements.
+Le menu déroulant « Départements » (à côté du champ de date) permet de cocher un ou plusieurs départements parmi les huit de la région Bourgogne-Franche-Comté (21, 25, 39, 58, 70, 71, 89, 90). Par défaut, seule la Côte-d'Or (21) est sélectionnée. La sélection est mémorisée d'une session à l'autre. Les recherches Sirene et Journal officiel interrogent tous les départements choisis en un seul appel ; l'import RNA filtre également sur ces départements. Attention : plus vous sélectionnez de départements, plus le nombre de pages à parcourir augmente (voir la section sur l'estimation de durée ci-dessus).
 
 ### Carte et géolocalisation
 
