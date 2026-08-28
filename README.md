@@ -61,6 +61,14 @@ Les colonnes `objet_social1` et `objet_social2` portent l'objet social de l'asso
 
 La fusion automatique des résultats se fait sur le SIRET (ou le numéro RNA à défaut). Une association présente à la fois dans les résultats Sirene et dans un import RNA sans SIRET renseigné dans l'export apparaît donc comme deux lignes distinctes. Pour limiter le risque d'oubli, l'application compare aussi le nom et le code postal des associations : en cas de correspondance probable, un avertissement « Peut-être déjà vue ailleurs » s'affiche sur la ligne RNA concernée, pointant vers l'autre ligne — sans jamais fusionner automatiquement (pour éviter de mélanger deux structures différentes portant un nom proche).
 
+### Dates de création postérieures à aujourd'hui
+
+L'INSEE enregistre parfois une « date de création » qui correspond à une date de début d'activité **déclarée à l'avance** par le créateur (ex. immatriculation en juillet avec un début d'activité prévu en septembre). Ces structures apparaissent donc dans les résultats avant que la date en question soit atteinte. L'application ne les exclut pas (l'objectif reste de ne rien manquer), mais affiche un repère « Date à venir — pas encore en activité » sur ces lignes pour que l'agent sache qu'un contrôle sur place risque d'être prématuré.
+
+### Recherches successives : rien n'est perdu si vous changez la date
+
+À chaque nouvelle recherche, les structures déjà connues (Sirene ou RNA) sont conservées même si la nouvelle date choisie est plus tardive que celle d'une recherche précédente — seules les décisions déjà prises restent inchangées, la liste ne fait que grandir. Vous pouvez donc utiliser la recherche Sirene et l'import RNA dans l'ordre que vous voulez, aussi souvent que vous voulez : les deux sources se combinent toujours automatiquement.
+
 ### Alertes de fraîcheur
 
 Deux avertissements s'affichent indépendamment si vous n'avez pas relancé les recherches depuis plus de 10 jours : un pour la recherche automatique (Sirene), un pour l'import manuel du fichier RNA.
