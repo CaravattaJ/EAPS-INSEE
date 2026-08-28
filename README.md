@@ -27,6 +27,12 @@ L'application appelle l'API publique Recherche d'entreprises depuis le navigateu
 - import local d'un export CSV du RNA, filtré sur la Côte-d'Or, la période et l'absence de dissolution, en complément (facultatif) ;
 - qualification locale et sauvegarde en CSV.
 
+### L'API Sirene ne filtre pas par date : recherche complète avec estimation de durée
+
+Découverte importante (vérifiée sur la spécification officielle `openapi.json` de l'API Recherche d'entreprises) : **cette API ne propose aucun paramètre de filtre ni de tri par date de création**. Le paramètre `date_creation_min` qui semblait fonctionner dans une version précédente de l'application n'avait en réalité aucun effet — il était silencieusement ignoré par le serveur. L'application a donc toujours dû, et doit encore, parcourir **toutes les pages** de résultats de chaque code NAF/mot-clé pour ne rien manquer, puis filtrer les dates elle-même après coup.
+
+Pour un code très courant (ex. `93.12Z` sur toute la Bourgogne-Franche-Comté), cela peut représenter plusieurs milliers de pages. Avant de lancer une recherche, l'application mesure donc désormais le nombre de pages réellement nécessaires et, si c'est significatif (plus de 40 pages), affiche une estimation de durée et demande confirmation avant de continuer — vous pouvez annuler et réduire la période ou le nombre de départements sélectionnés. En dessous de ce seuil, la recherche démarre directement sans interruption.
+
 ### Recherche automatique au Journal officiel des associations (JOAFE)
 
 En plus de Sirene, chaque clic sur « Rechercher les nouveautés » interroge aussi l'**API publique du Journal officiel des associations** (`journal-officiel-datadila.opendatasoft.com`, jeu de données `jo_associations`), gratuite et sans clé, pour récupérer les créations d'associations en Côte-d'Or publiées depuis la date choisie. C'est la source la plus fraîche disponible : les annonces y apparaissent en général quelques jours après leur publication, bien avant que le fichier RNA (mis à jour périodiquement) ne les intègre.
@@ -94,7 +100,7 @@ Deux avertissements s'affichent indépendamment si vous n'avez pas relancé les 
 
 ### Départements et évolution régionale
 
-Le sélecteur « Départements » (à côté du champ de date) permet de choisir un ou plusieurs départements parmi les huit de la région Bourgogne-Franche-Comté (21, 25, 39, 58, 70, 71, 89, 90) — maintenez Ctrl/Cmd enfoncé pour en sélectionner plusieurs. Par défaut, seule la Côte-d'Or (21) est sélectionnée. La sélection est mémorisée d'une session à l'autre. Les recherches Sirene et Journal officiel interrogent tous les départements choisis en un seul appel ; l'import RNA filtre également sur ces départements.
+Le menu déroulant « Départements » (à côté du champ de date) permet de cocher un ou plusieurs départements parmi les huit de la région Bourgogne-Franche-Comté (21, 25, 39, 58, 70, 71, 89, 90). Par défaut, seule la Côte-d'Or (21) est sélectionnée. La sélection est mémorisée d'une session à l'autre. Les recherches Sirene et Journal officiel interrogent tous les départements choisis en un seul appel ; l'import RNA filtre également sur ces départements. Attention : plus vous sélectionnez de départements, plus le nombre de pages à parcourir augmente (voir la section sur l'estimation de durée ci-dessus).
 
 ### Carte et géolocalisation
 

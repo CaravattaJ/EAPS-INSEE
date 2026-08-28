@@ -5,7 +5,21 @@ const MEDIUM_PRIORITY_CODES = ["85.51Z"];
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const REQUEST_DELAY_MS = 900;
 const MAX_RETRIES = 4;
-const MAX_API_PAGES = 20;
+// L'API Sirene ne propose aucun filtre ni tri par date de création (vérifié sur sa
+// spécification officielle) : impossible de demander uniquement les nouveautés.
+// Pour ne rien manquer, l'application doit donc parcourir TOUTES les pages de chaque
+// code NAF puis filtrer les dates elle-même. MAX_API_PAGES n'est plus une limite
+// normale : c'est un garde-fou de sécurité très large, pour éviter une boucle sans fin
+// dans un cas vraiment anormal (ce nombre de pages ne devrait jamais être atteint en
+// pratique).
+const MAX_API_PAGES = 12000;
+// En dessous de ce nombre de pages à parcourir, la recherche est assez rapide pour ne
+// pas avoir besoin de demander confirmation à l'agent avant de la lancer.
+const CONFIRM_THRESHOLD_PAGES = 40;
+// Temps approximatif d'une page (délai entre requêtes + temps de réponse du serveur),
+// utilisé uniquement pour donner une estimation de durée à l'agent avant de lancer une
+// recherche longue.
+const ESTIMATED_MS_PER_PAGE = REQUEST_DELAY_MS + 400;
 const RECOVERY_DAYS = 15;
 const STALE_SYNC_DAYS = 10;
 const WIDE_RANGE_WARNING_DAYS = 90;
@@ -265,20 +279,43 @@ async function requestWithRetry(url, fetchImplementation = fetch, waitImplementa
   throw new Error("L'API limite temporairement les recherches (erreur 429). Attendez une minute puis réessayez");
 }
 
+function buildSireneParams(extraParams, departments, page) {
+  return new URLSearchParams({
+    departement: departments.join(","),
+    etat_administratif: "A",
+    per_page: "25",
+    page: String(page),
+    ...extraParams
+  });
+}
+
+// Renvoie le nombre de pages qu'il faudra parcourir pour ce code/mot-clé (sans les
+// récupérer). Sert uniquement à estimer la durée d'une recherche avant de la lancer,
+// puisque l'API ne permet pas de ne demander que les nouveautés (voir MAX_API_PAGES).
+async function probePageCount(extraParams, departments) {
+  const params = buildSireneParams(extraParams, departments, 1);
+  const response = await requestWithRetry(`${API_BASE}?${params}`);
+  if (!response.ok) throw new Error(`La source a répondu ${response.status}`);
+  const payload = await response.json();
+  return Math.min(Number(payload.total_pages || 1), MAX_API_PAGES);
+}
+
+function formatDuration(estimatedMs) {
+  const totalMinutes = Math.round(estimatedMs / 60000);
+  if (totalMinutes < 1) return "moins d'une minute";
+  if (totalMinutes < 60) return `environ ${totalMinutes} minute${totalMinutes > 1 ? "s" : ""}`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `environ ${hours} h${minutes ? ` ${minutes}` : ""}`;
+}
+
 async function fetchByParams(extraParams, since, departments = DEFAULT_DEPARTMENTS, onProgress = () => {}) {
   const items = [];
   let page = 1;
   let pages = 1;
   do {
     onProgress(page, pages);
-    const params = new URLSearchParams({
-      departement: departments.join(","),
-      etat_administratif: "A",
-      date_creation_min: since,
-      per_page: "25",
-      page: String(page),
-      ...extraParams
-    });
+    const params = buildSireneParams(extraParams, departments, page);
     const response = await requestWithRetry(`${API_BASE}?${params}`);
     if (!response.ok) throw new Error(`La source a répondu ${response.status}`);
     const payload = await response.json();
@@ -477,11 +514,11 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE }
 });
 
-function readSelectedDepartments(select) {
-  const values = Array.from(select.selectedOptions).map(option => option.value);
+function readSelectedDepartments(checkboxes) {
+  const values = Array.from(checkboxes).filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
   return values.length ? values : DEFAULT_DEPARTMENTS;
 }
 
@@ -492,7 +529,8 @@ if (typeof document !== "undefined") {
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");
   const hideLowInput = document.querySelector("#hide-low-input");
-  const departmentSelect = document.querySelector("#department-select");
+  const departmentCheckboxes = document.querySelectorAll(".department-checkbox");
+  const departmentSummary = document.querySelector("#department-summary");
   const prevPageButton = document.querySelector("#prev-page-button");
   const nextPageButton = document.querySelector("#next-page-button");
   let sortColumn = null;
@@ -532,18 +570,26 @@ if (typeof document !== "undefined") {
     updateMap(mapItems);
   };
 
+  const updateDepartmentSummary = () => {
+    departmentSummary.textContent = departmentsLabel(readSelectedDepartments(departmentCheckboxes));
+  };
+
   if (Array.isArray(state.departments) && state.departments.length) {
-    Array.from(departmentSelect.options).forEach(option => { option.selected = state.departments.includes(option.value); });
+    departmentCheckboxes.forEach(checkbox => { checkbox.checked = state.departments.includes(checkbox.value); });
   }
+  updateDepartmentSummary();
 
   sinceInput.value = state.lastSync ? new Date(new Date(state.lastSync).getTime() - RECOVERY_DAYS * 86400000).toISOString().slice(0, 10) : defaultSince();
   renderNow();
 
   hideLowInput.addEventListener("change", () => { page = 1; renderNow(); });
   filterInput.addEventListener("input", () => { page = 1; renderNow(); });
-  departmentSelect.addEventListener("change", () => {
-    state.departments = readSelectedDepartments(departmentSelect);
-    saveState(state);
+  departmentCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener("change", () => {
+      state.departments = readSelectedDepartments(departmentCheckboxes);
+      saveState(state);
+      updateDepartmentSummary();
+    });
   });
   prevPageButton.addEventListener("click", () => { page -= 1; renderNow(); });
   nextPageButton.addEventListener("click", () => { page += 1; renderNow(); });
@@ -568,11 +614,33 @@ if (typeof document !== "undefined") {
 
   document.querySelector("#search-button").addEventListener("click", async event => {
     const button = event.currentTarget;
-    const departments = readSelectedDepartments(departmentSelect);
+    const departments = readSelectedDepartments(departmentCheckboxes);
     button.disabled = true;
-    button.textContent = "Recherche en cours…";
-    showMessage(`Consultation des activités sportives en ${departmentsLabel(departments)}…`);
+    button.textContent = "Estimation de la durée…";
+    showMessage("Estimation du temps nécessaire avant de lancer la recherche…");
     try {
+      // Le site des entreprises ne permet pas de ne demander que les nouveautés : il faut
+      // parcourir toutes les pages de chaque activité pour ne rien manquer. On mesure donc
+      // d'abord combien de pages ça représente, pour prévenir l'agent si c'est long.
+      let totalPages = 0;
+      for (const code of SPORTS_CODES) {
+        totalPages += await probePageCount({ activite_principale: code }, departments);
+        await wait(REQUEST_DELAY_MS);
+      }
+      totalPages += await probePageCount({ q: COMPLEMENTARY_KEYWORD }, departments);
+
+      if (totalPages > CONFIRM_THRESHOLD_PAGES) {
+        const proceed = confirm(
+          `Cette recherche va devoir consulter environ ${totalPages} pages de résultats sur ${departmentsLabel(departments)}, ` +
+          `ce qui prendra ${formatDuration(totalPages * ESTIMATED_MS_PER_PAGE)}. ` +
+          "Voulez-vous continuer ? (Astuce : réduire le nombre de départements sélectionnés accélère la recherche.)"
+        );
+        if (!proceed) {
+          showMessage("Recherche annulée. Réduisez la période ou le nombre de départements pour une recherche plus rapide.");
+          return;
+        }
+      }
+
       const totalSteps = SPORTS_CODES.length + 2;
       const batches = [];
       let incompleteCount = 0;
@@ -622,7 +690,7 @@ if (typeof document !== "undefined") {
   document.querySelector("#rna-input").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
-    const departments = readSelectedDepartments(departmentSelect);
+    const departments = readSelectedDepartments(departmentCheckboxes);
     showMessage(`Analyse du fichier RNA « ${file.name} »…`);
     try {
       const imported = extractRnaItems(await file.text(), sinceInput.value, departments);

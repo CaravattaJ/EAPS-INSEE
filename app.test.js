@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -54,6 +54,19 @@ test("paginate slices items and clamps an out-of-range page", () => {
   const empty = paginate([], 1, 5);
   assert.equal(empty.currentPage, 1);
   assert.equal(empty.totalPages, 1);
+});
+
+test("formatDuration expresses a page count as a human-readable time estimate", () => {
+  assert.equal(formatDuration(20000), "moins d'une minute");
+  assert.equal(formatDuration(3 * 60000), "environ 3 minutes");
+  assert.equal(formatDuration(1 * 60000), "environ 1 minute");
+  assert.equal(formatDuration(90 * 60000), "environ 1 h 30");
+  assert.equal(formatDuration(120 * 60000), "environ 2 h");
+});
+
+test("CONFIRM_THRESHOLD_PAGES and ESTIMATED_MS_PER_PAGE are sane, documented values", () => {
+  assert.ok(CONFIRM_THRESHOLD_PAGES > 0);
+  assert.ok(ESTIMATED_MS_PER_PAGE > 0);
 });
 
 test("geocodeCommune turns a BAN municipality match into lat/lon", async () => {
