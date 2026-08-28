@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -121,6 +121,28 @@ test("treats the rna_import placeholder date 0001-01-01 as unknown rather than e
   assert.equal(items[0].creationDate, "");
 });
 
+test("never treats the last-declaration date (date_decla) as a creation date, to avoid flagging old associations as new", () => {
+  const csv = [
+    "id;titre;objet;date_decla;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345697;Anciens combattants;Entraide et devoir de mémoire;18/08/2026;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  // La ligne reste visible (date de création inconnue n'est jamais un motif d'exclusion silencieuse),
+  // mais elle ne doit surtout pas hériter de la date de dernière déclaration comme fausse date de création.
+  assert.equal(items.length, 1);
+  assert.equal(items[0].creationDate, "");
+});
+
+test("falls back to the JO publication date (date_publi) when date_creat is missing", () => {
+  const csv = [
+    "id;titre;objet;date_publi;date_disso;adrs_codepostal;adrs_libcommune",
+    "W212345698;Rugby Dijon;Pratique du rugby;18/08/2026;;21000;DIJON"
+  ].join("\n");
+  const items = extractRnaItems(csv, "2026-08-01");
+  assert.equal(items.length, 1);
+  assert.equal(items[0].creationDate, "2026-08-18");
+});
+
 test("throws a clear error naming the detected headers when the file's columns aren't recognized", () => {
   const csv = ["nom;description;departement", "Club X;Un club;21"].join("\n");
   assert.throws(() => extractRnaItems(csv, "2026-08-01"), /Colonnes trouvées/);
@@ -156,6 +178,35 @@ test("flagProbableDuplicates does not flag distinct clubs in different communes"
 test("daysSince returns Infinity for a missing date and a positive count otherwise", () => {
   assert.equal(daysSince(null), Infinity);
   assert.ok(daysSince(new Date(Date.now() - 5 * 86400000).toISOString()) >= 4.9);
+});
+
+test("normalizeJoafeRecord recognizes the sport family code (11000/...) from the Journal officiel", () => {
+  const record = {
+    titre: "BADMINTON CLUB SAINT SEINE L'ABBAYE",
+    objet: "promouvoir la pratique du badminton",
+    domaine_activite_categorise: ["11000/11030"],
+    commune_actuelle: "Saint-Seine-l'Abbaye",
+    codepostal_actuel: "21440",
+    dateparution: "2026-08-25",
+    numero_rna: "W212000001"
+  };
+  const item = normalizeJoafeRecord(record);
+  assert.equal(item.priority, "Élevée");
+  assert.equal(item.source, "JOAFE");
+  assert.equal(item.commune, "Saint-Seine-l'Abbaye");
+  assert.equal(item.creationDate, "2026-08-25");
+});
+
+test("normalizeJoafeRecord falls back to keywords, then to low priority, for non-sport activity codes", () => {
+  const withKeyword = normalizeJoafeRecord({
+    titre: "NGR SPORT", objet: "association sportive", domaine_activite_categorise: ["11000/11192"], codepostal_actuel: "21000"
+  });
+  assert.equal(withKeyword.priority, "Élevée");
+
+  const noIndicator = normalizeJoafeRecord({
+    titre: "UNION FRATERNELLE DES ANCIENS COMBATTANTS", objet: "entraide et devoir de mémoire", domaine_activite_categorise: ["36000/36510"], codepostal_actuel: "21000"
+  });
+  assert.equal(noIndicator.priority, "Faible");
 });
 
 test("isFutureDate flags a declared creation date that hasn't happened yet", () => {
