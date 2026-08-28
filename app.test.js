@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -131,4 +131,12 @@ test("flagProbableDuplicates does not flag distinct clubs in different communes"
 test("daysSince returns Infinity for a missing date and a positive count otherwise", () => {
   assert.equal(daysSince(null), Infinity);
   assert.ok(daysSince(new Date(Date.now() - 5 * 86400000).toISOString()) >= 4.9);
+});
+
+test("isFutureDate flags a declared creation date that hasn't happened yet", () => {
+  assert.equal(isFutureDate(null), false);
+  const tomorrow = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+  assert.equal(isFutureDate(tomorrow), true);
+  assert.equal(isFutureDate(yesterday), false);
 });

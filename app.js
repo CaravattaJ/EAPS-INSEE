@@ -266,6 +266,11 @@ function priorityClass(priority) {
   return "low";
 }
 
+function isFutureDate(value) {
+  if (!value) return false;
+  return value.slice(0, 10) > new Date().toISOString().slice(0, 10);
+}
+
 function render(state, query = "") {
   const filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity].join(" ").toLowerCase().includes(query.toLowerCase()));
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
@@ -283,7 +288,7 @@ function render(state, query = "") {
       <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td>${escapeHtml(item.activity)}</td>
-      <td>${formatDate(item.creationDate)}</td>
+      <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
       <td><select class="decision-select" data-key="${escapeHtml(item.siret || `rna:${item.rna}`)}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${decision}</option>`).join("")}</select></td>
     </tr>`).join("");
 }
@@ -314,7 +319,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate }
 });
 
 if (typeof document !== "undefined") {
@@ -357,8 +362,9 @@ if (typeof document !== "undefined") {
       const keywordBatch = keywordItems.map(markKeywordFallback);
 
       const previous = new Map(state.items.map(item => [item.siret || `rna:${item.rna}`, item]));
-      const existingRna = state.items.filter(item => item.source === "RNA");
-      state.items = flagProbableDuplicates(deduplicate([...keywordBatch, ...batches.flat(), ...existingRna]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision })));
+      // Les anciens résultats sont mis en premier : ils sont conservés même si la nouvelle recherche
+      // porte sur une période plus courte, et les nouveaux résultats (mêmes clé) les mettent à jour.
+      state.items = flagProbableDuplicates(deduplicate([...state.items, ...keywordBatch, ...batches.flat()]).map(item => ({ ...item, decision: previous.get(item.siret || `rna:${item.rna}`)?.decision || item.decision })));
       state.lastSync = new Date().toISOString();
       saveState(state);
       render(state, document.querySelector("#filter-input").value);
