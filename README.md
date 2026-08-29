@@ -137,6 +137,18 @@ Le tableau affiche 25 résultats par page, avec des boutons Précédent/Suivant 
 
 Le Recensement des équipements sportifs (RES, `equipements.sports.gouv.fr`) recense les lieux de pratique physiques et pourrait servir de recoupement supplémentaire (un équipement récent sans structure exploitante identifiée serait un signal à vérifier). Cette piste n'a pas encore été implémentée : la structure exacte d'un export RES Côte-d'Or (colonnes disponibles, présence ou non d'une date exploitable) doit être vérifiée sur un fichier réel avant de développer cette fonctionnalité.
 
+### Interface : une page organisée par priorité d'usage
+
+L'application reste une page unique, mais organisée pour que le geste quotidien (choisir une date, lancer la recherche, traiter les résultats) reste toujours visible en haut, tandis que ce qui ne sert qu'occasionnellement est replié par défaut dans trois blocs distincts (dépliables au clic) :
+
+- **Équipe** — partage du fichier commun avec les collègues.
+- **Carte** — localisation des structures détectées.
+- **Aide** — explications détaillées (couverture de la recherche, calcul du niveau de confiance, limites connues), regroupées en un seul endroit plutôt que dispersées sous forme de notes au fil de la page.
+
+Les textes visibles (boutons, libellés, messages) ont été raccourcis pour rester directs (« Importer RNA », « Exporter en CSV », « Lier le partage (auto) »...) ; les explications plus longues qui existaient auparavant en permanence à l'écran ont été déplacées dans le bloc Aide, accessible à la demande sans encombrer l'écran principal.
+
+La palette de couleurs a aussi été revue (bleu pour l'action principale, teal pour distinguer les blocs secondaires, rouge/ambre réservés aux niveaux de confiance et aux alertes) pour mieux hiérarchiser visuellement l'écran.
+
 ## Tests
 
 ```bash

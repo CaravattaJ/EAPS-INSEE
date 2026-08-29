@@ -625,6 +625,10 @@ if (typeof document !== "undefined") {
       maxZoom: 18
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
+    // La carte vit dans un bloc replié par défaut : Leaflet doit recalculer sa taille
+    // une fois le bloc réellement visible, sinon les tuiles restent mal disposées.
+    const mapBlock = document.querySelector("#map-block");
+    if (mapBlock) mapBlock.addEventListener("toggle", () => { if (mapBlock.open) map.invalidateSize(); });
   }
 
   function updateMap(items) {
@@ -683,10 +687,10 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      if (sourceLabel) showMessage(`Fichier partagé rechargé automatiquement (${incoming.length} structure(s)).`);
+      if (sourceLabel) showMessage(`Partage rechargé automatiquement (${incoming.length} structure(s)).`);
       return true;
     } catch {
-      if (sourceLabel) showMessage("Le fichier partagé lié n'a pas pu être relu automatiquement. Utilisez « Charger la liste partagée » manuellement.", true);
+      if (sourceLabel) showMessage("Rechargement automatique du partage impossible — utilisez « Charger le partage ».", true);
       return false;
     }
   }
@@ -701,8 +705,8 @@ if (typeof document !== "undefined") {
         await idbSetHandle(handle);
         const loaded = await loadFromSharedHandle();
         showMessage(loaded
-          ? "Fichier partagé lié et chargé : il sera relu à l'ouverture et réenregistré automatiquement après chaque décision."
-          : "Fichier partagé lié, mais illisible pour l'instant (vide ou mal formé) : il sera tout de même réenregistré automatiquement après chaque décision.");
+          ? "Partage lié : rechargé à l'ouverture, réenregistré après chaque décision."
+          : "Partage lié (fichier vide ou illisible pour l'instant) : il sera réenregistré après chaque décision.");
       } catch {
         // L'agent a annulé la sélection du fichier : rien à faire.
       }
@@ -718,7 +722,7 @@ if (typeof document !== "undefined") {
           sharedFileHandle = storedHandle;
           await loadFromSharedHandle("ouverture");
         } else {
-          showMessage("Un fichier partagé était lié, mais l'autorisation a expiré. Cliquez sur « Lier un fichier partagé » pour la renouveler.");
+          showMessage("Autorisation du fichier partagé expirée — recliquez sur « Lier le partage (auto) ».");
         }
       } catch {
         // Pas de fichier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
@@ -765,7 +769,7 @@ if (typeof document !== "undefined") {
     if (Number.isNaN(chosen.getTime())) return;
     const daysAgo = (Date.now() - chosen.getTime()) / 86400000;
     if (daysAgo > WIDE_RANGE_WARNING_DAYS) {
-      showMessage("Vous avez choisi une date assez ancienne. Sur une aussi longue période, le site des entreprises peut ne pas renvoyer tous les résultats. Si la liste semble incomplète, refaites une recherche sur une période plus courte.");
+      showMessage("Date ancienne choisie : sur une aussi longue période, certains résultats peuvent manquer. Essayez une période plus courte si la liste semble incomplète.");
     }
   });
 
@@ -774,7 +778,7 @@ if (typeof document !== "undefined") {
     const departments = readSelectedDepartments(departmentCheckboxes);
     button.disabled = true;
     button.textContent = "Estimation de la durée…";
-    showMessage("Estimation du temps nécessaire avant de lancer la recherche…");
+    showMessage("Estimation de la durée de la recherche…");
     try {
       // Le site des entreprises ne permet pas de ne demander que les nouveautés : il faut
       // parcourir toutes les pages de chaque activité pour ne rien manquer. On mesure donc
@@ -793,7 +797,7 @@ if (typeof document !== "undefined") {
           "Voulez-vous continuer ? (Astuce : réduire le nombre de départements sélectionnés accélère la recherche.)"
         );
         if (!proceed) {
-          showMessage("Recherche annulée. Réduisez la période ou le nombre de départements pour une recherche plus rapide.");
+          showMessage("Recherche annulée — réduisez la période ou les départements pour aller plus vite.");
           return;
         }
       }
@@ -834,11 +838,11 @@ if (typeof document !== "undefined") {
       page = 1;
       renderNow();
       await saveToSharedHandle();
-      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées en ${departmentsLabel(departments)} (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
-      if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
+      let summary = `${state.items.length} structure(s) trouvée(s) depuis le ${formatDate(sinceInput.value)} en ${departmentsLabel(departments)} (dont ${joafeItems.length} au Journal officiel).`;
+      if (incompleteCount > 0) summary += " Attention, liste peut-être incomplète (beaucoup de résultats sur au moins une source).";
       showMessage(summary);
     } catch (error) {
-      showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion Internet ou réessayez dans quelques minutes.`, true);
+      showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion.`, true);
     } finally {
       button.disabled = false;
       button.innerHTML = '<span aria-hidden="true">↻</span> Rechercher les nouveautés';
@@ -850,7 +854,7 @@ if (typeof document !== "undefined") {
     const file = event.target.files[0];
     if (!file) return;
     const departments = readSelectedDepartments(departmentCheckboxes);
-    showMessage(`Analyse du fichier RNA « ${file.name} »…`);
+    showMessage(`Analyse de « ${file.name} »…`);
     try {
       const imported = extractRnaItems(await file.text(), sinceInput.value, departments);
       for (const item of imported) {
@@ -866,7 +870,7 @@ if (typeof document !== "undefined") {
       page = 1;
       renderNow();
       await saveToSharedHandle();
-      showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
+      showMessage(`${imported.length} association(s) candidate(s) trouvée(s) dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
     } finally {
@@ -891,7 +895,7 @@ if (typeof document !== "undefined") {
   document.querySelector("#shared-input").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
-    showMessage(`Lecture du fichier partagé « ${file.name} »…`);
+    showMessage(`Lecture de « ${file.name} »…`);
     try {
       const payload = JSON.parse(await file.text());
       const incoming = Array.isArray(payload.items) ? payload.items : [];
@@ -899,7 +903,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      showMessage(`${incoming.length} structure(s) lues dans le fichier partagé, fusionnées avec votre liste (la décision la plus récente est toujours conservée).`);
+      showMessage(`${incoming.length} structure(s) fusionnée(s) depuis le partage.`);
     } catch (error) {
       showMessage(`Fichier partagé illisible : ${error.message}.`, true);
     } finally {
@@ -915,6 +919,6 @@ if (typeof document !== "undefined") {
     link.download = SHARED_FILE_NAME;
     link.click();
     URL.revokeObjectURL(link.href);
-    showMessage(`Fichier « ${SHARED_FILE_NAME} » téléchargé : déposez-le dans votre dossier réseau partagé (en écrasant l'ancien) pour que vos collègues le voient.`);
+    showMessage(`« ${SHARED_FILE_NAME} » téléchargé — déposez-le sur le dossier partagé (en écrasant l'ancien).`);
   });
 }

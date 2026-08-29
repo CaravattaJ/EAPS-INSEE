@@ -9,19 +9,22 @@
   <style>
 :root {
   color-scheme: light;
-  --navy: #101d3b;
-  --blue: #335bd6;
-  --blue-dark: #2446af;
-  --blue-pale: #eef2ff;
-  --background: #f4f6fa;
+  --navy: #0f172a;
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --blue-pale: #eef4ff;
+  --teal: #0f766e;
+  --teal-pale: #f0fdfa;
+  --background: #f7f8fb;
   --surface: #ffffff;
-  --border: #dfe4ee;
-  --muted: #667085;
-  --text: #1b2438;
-  --green: #18794e;
-  --amber: #9a6700;
-  --red: #b42318;
-  --shadow: 0 8px 28px rgba(31, 46, 86, 0.07);
+  --border: #e2e6ef;
+  --muted: #64748b;
+  --text: #1e2534;
+  --amber: #b45309;
+  --amber-pale: #fef6e9;
+  --red: #c0292f;
+  --red-pale: #fdecec;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -93,10 +96,10 @@ h2 { margin: 7px 0 0; font-size: clamp(1.4rem, 3vw, 2rem); color: var(--navy); }
   font-weight: 700;
   white-space: nowrap;
 }
-.primary-button { border: 0; background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(51,91,214,.25); }
+.primary-button { border: 0; background: var(--blue); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.25); }
 .primary-button:hover { background: var(--blue-dark); }
 .primary-button:disabled { cursor: wait; opacity: .65; }
-.secondary-button { border: 1px solid #bfc8da; background: white; color: var(--navy); }
+.secondary-button { border: 1px solid #ccd3e0; background: white; color: var(--navy); }
 .secondary-button:hover { background: #f7f8fb; }
 
 .status-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; margin: 18px 0; }
@@ -104,41 +107,43 @@ h2 { margin: 7px 0 0; font-size: clamp(1.4rem, 3vw, 2rem); color: var(--navy); }
 .metric-label { display: block; margin-bottom: 9px; color: var(--muted); font-size: .86rem; }
 .metric strong { color: var(--navy); font-size: 1.45rem; }
 
-.message { margin: 0 0 18px; padding: 13px 16px; border-radius: 9px; border: 1px solid #a9c4ff; background: #edf3ff; color: #173d8f; }
-.message.error { border-color: #f1ada8; background: #fff0ef; color: var(--red); }
+.message { margin: 0 0 18px; padding: 13px 16px; border-radius: 9px; border: 1px solid #b7cbf7; background: var(--blue-pale); color: #1e3a8a; font-size: .92rem; }
+.message.error { border-color: #f3c3c3; background: var(--red-pale); color: var(--red); }
 
 .results-card { overflow: hidden; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 24px; }
 .section-heading h2 { font-size: 1.35rem; }
-.actions { display: flex; gap: 10px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.confidence-details { margin: 0 24px 20px; }
+.confidence-details summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--blue-dark);
+  font-size: .86rem;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+.confidence-details summary::-webkit-details-marker { display: none; }
+.confidence-details summary::before { content: "ⓘ"; font-size: .95rem; }
 .confidence-note {
-  display: flex;
-  gap: 13px;
-  margin: 0 24px 24px;
-  padding: 16px 18px;
-  border: 1px solid #cbd7f8;
-  border-radius: 10px;
-  background: #f5f7ff;
-  color: #3d4862;
-}
-.confidence-icon {
   display: grid;
-  flex: 0 0 25px;
-  width: 25px;
-  height: 25px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--blue);
-  color: white;
-  font-family: Georgia, serif;
-  font-weight: 800;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafbfd;
+  color: #3d4862;
+  font-size: .88rem;
 }
-.confidence-note h3 { margin: 2px 0 6px; color: var(--navy); font-size: 1rem; }
 .confidence-note p { margin: 0; line-height: 1.5; }
-.confidence-note ul { display: grid; gap: 8px; margin: 12px 0; padding-left: 20px; }
+.confidence-note ul { display: grid; gap: 7px; margin: 2px 0; padding-left: 20px; }
 .confidence-note li { padding-left: 3px; line-height: 1.5; }
 .confidence-note li .priority { margin-right: 5px; }
-.confidence-warning { padding-top: 10px; border-top: 1px solid #d7def2; font-size: .86rem; }
+.confidence-warning { padding-top: 8px; border-top: 1px solid var(--border); }
 .search-field input, .settings-grid input {
   min-height: 44px;
   border: 1px solid #c8cfdd;
@@ -172,14 +177,12 @@ tbody tr:hover { background: #fbfcff; }
 .structure-name { display: block; margin-bottom: 3px; color: var(--navy); font-weight: 750; }
 .identifier { color: var(--muted); font-size: .78rem; }
 .priority { display: inline-block; padding: 5px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
-.priority.high { background: #ffebe9; color: var(--red); }
-.priority.medium { background: #fff4d6; color: var(--amber); }
+.priority.high { background: var(--red-pale); color: var(--red); }
+.priority.medium { background: var(--amber-pale); color: var(--amber); }
 .priority.low { background: #eef1f6; color: var(--muted); }
 .duplicate-flag { display: block; margin-top: 3px; color: var(--amber); font-size: .78rem; font-weight: 700; }
 .future-flag { display: inline-block; margin-top: 3px; color: var(--amber); font-size: .78rem; font-weight: 700; }
 .decision-select { max-width: 155px; padding: 8px; border: 1px solid #c8cfdd; border-radius: 7px; background: white; }
-.shared-heading { padding: 18px 24px 0; }
-.shared-help { padding: 0 24px 20px; }
 .empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
 .empty-state h3 { margin: 8px 0 6px; color: var(--navy); }
 .empty-state p { margin: 0; }
@@ -187,7 +190,27 @@ tbody tr:hover { background: #fbfcff; }
 
 .pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px 24px; border-top: 1px solid var(--border); }
 
-.map-card { margin-top: 18px; padding: 24px; }
+/* Blocs secondaires (équipe, carte, aide) : repliés par défaut, moins mis en avant que la
+   recherche et les résultats, avec un fil teal pour les distinguer visuellement du bleu
+   d'action principal. */
+.secondary-block { margin-top: 16px; border-top: 3px solid var(--teal); }
+.secondary-block > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 24px;
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+.secondary-block > summary::-webkit-details-marker { display: none; }
+.secondary-block > summary .eyebrow { margin: 0; color: var(--teal); }
+.secondary-block > summary::after { content: "Afficher ▾"; margin-left: auto; color: var(--muted); font-size: .82rem; font-weight: 600; }
+.secondary-block[open] > summary::after { content: "Masquer ▴"; }
+.secondary-block-body { padding: 0 24px 24px; }
+
 .map-help { margin: 0 0 14px; }
 #map { height: 420px; border-radius: 10px; border: 1px solid var(--border); }
 
@@ -224,12 +247,10 @@ tbody tr:hover { background: #fbfcff; }
 }
 .department-menu label { display: flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 500; }
 
-.settings-card { margin-top: 18px; padding: 18px 22px; }
-.settings-card summary { color: var(--navy); cursor: pointer; font-weight: 750; }
-.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(200px, 320px)); gap: 18px; margin-top: 18px; }
-.settings-grid label { display: grid; gap: 7px; color: #475169; font-size: .86rem; font-weight: 650; }
-.settings-grid input { padding: 0 11px; }
-.help { max-width: 800px; margin: 15px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.help { max-width: 800px; margin: 0 0 10px; color: var(--muted); font-size: .87rem; line-height: 1.55; }
+.help:last-child { margin-bottom: 0; }
+.help ul { margin: 4px 0; padding-left: 20px; }
+.help li { margin-bottom: 4px; }
 
 footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px max(24px, calc((100% - 1180px) / 2)); border-top: 1px solid var(--border); color: var(--muted); font-size: .8rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
@@ -263,7 +284,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
       <div>
         <p class="eyebrow">Côte-d'Or</p>
         <h2>Repérer les nouvelles structures sportives</h2>
-        <p class="hero-copy">Lancez une recherche, puis regardez les établissements et associations à examiner.</p>
+        <p class="hero-copy">Trouvez les établissements et associations sportives récemment créés.</p>
         <div class="hero-fields">
           <label class="since-field">
             <span>Chercher les structures créées depuis le</span>
@@ -294,21 +315,21 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
 
     <section class="status-grid" aria-label="État de la veille">
       <article class="metric card">
-        <span class="metric-label">Dernière recherche réussie</span>
+        <span class="metric-label">Dernière recherche</span>
         <strong id="last-sync">Jamais</strong>
       </article>
       <article class="metric card">
-        <span class="metric-label">Nouvelles structures</span>
+        <span class="metric-label">Structures trouvées</span>
         <strong id="new-count">0</strong>
       </article>
       <article class="metric card">
-        <span class="metric-label">Dont confiance faible</span>
+        <span class="metric-label">Confiance faible</span>
         <strong id="pending-count">0</strong>
       </article>
     </section>
 
-    <section id="stale-sync-warning" class="message error" hidden role="status">Ça fait plus de 10 jours que vous n'avez pas relancé une recherche. Relancez-la pour ne rien manquer.</section>
-    <section id="stale-rna-warning" class="message error" hidden role="status">Ça fait plus de 10 jours que vous n'avez pas importé un fichier RNA à jour. Téléchargez-en un nouveau et importez-le.</section>
+    <section id="stale-sync-warning" class="message error" hidden role="status">Aucune recherche depuis plus de 10 jours — relancez-la pour ne rien manquer.</section>
+    <section id="stale-rna-warning" class="message error" hidden role="status">Fichier RNA non réimporté depuis plus de 10 jours.</section>
     <section id="message" class="message" hidden role="status"></section>
 
     <section class="card results-card">
@@ -326,41 +347,24 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
             <input id="hide-low-input" type="checkbox" checked>
             <span>Masquer les « Faible »</span>
           </label>
-          <button id="rna-button" class="secondary-button" type="button">Importer un fichier RNA</button>
+          <button id="rna-button" class="secondary-button" type="button">Importer RNA</button>
           <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
-          <button id="export-button" class="secondary-button" type="button">Sauvegarder la liste (fichier daté)</button>
+          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
         </div>
       </div>
 
-      <div class="section-heading shared-heading">
-        <div>
-          <p class="eyebrow">Travail en équipe</p>
-          <h2>Liste partagée entre agents</h2>
-        </div>
-        <div class="actions">
-          <button id="link-shared-button" class="secondary-button" type="button" hidden>Lier un fichier partagé (auto)</button>
-          <button id="load-shared-button" class="secondary-button" type="button">Charger la liste partagée</button>
-          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
-          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer sur le partage</button>
-        </div>
-      </div>
-      <p class="help shared-help">Chargez le fichier <code>veille-sports-partage.json</code> depuis votre dossier réseau partagé pour récupérer le travail de vos collègues (fusionné avec le vôtre, sans rien perdre), puis « Enregistrer sur le partage » pour déposer votre propre fichier dans ce même dossier (en écrasant l'ancien).</p>
-      <p class="help shared-help"><strong>Sur Chrome/Edge&nbsp;:</strong> « Lier un fichier partagé (auto) » permet de choisir une fois le fichier du dossier réseau — il est alors relu automatiquement à l'ouverture de l'application et réenregistré automatiquement après chaque décision, sans avoir à cliquer sur les deux boutons manuels. Sur Firefox, cette option n'existe pas&nbsp;: seuls les boutons manuels fonctionnent.</p>
-      <p class="help shared-help">Attention&nbsp;: sans serveur commun, deux enregistrements presque simultanés peuvent se marcher dessus — la fusion des décisions reste correcte tant que chacun recharge avant de modifier quelque chose.</p>
-
-      <aside class="confidence-note" aria-labelledby="confidence-title">
-        <div class="confidence-icon" aria-hidden="true">i</div>
-        <div>
-          <h3 id="confidence-title">Comment est déterminé le niveau de confiance&nbsp;?</h3>
-          <p>Ce niveau est un <strong>indice de pertinence automatique</strong>, et non une qualification juridique ni une décision de contrôle.</p>
+      <details class="confidence-details">
+        <summary>Comment la confiance est-elle calculée&nbsp;?</summary>
+        <div class="confidence-note" aria-labelledby="confidence-title">
+          <p id="confidence-title">Un indice automatique, pas une décision de contrôle&nbsp;:</p>
           <ul>
-            <li><span class="priority high">Élevée</span> l'activité déclarée relève directement du sport (gestion d'installations, club, centre de culture physique...), ou l'association a déclaré un objet social sportif reconnu.</li>
-            <li><span class="priority medium">Moyenne</span> l'activité déclarée est l'enseignement d'une discipline sportive ou de loisir, qui peut aussi couvrir des activités hors du périmètre de contrôle ; ou le nom/l'objet contient un mot évoquant le sport.</li>
-            <li><span class="priority low">Faible</span> aucun signe sportif net n'a été trouvé automatiquement (activité résiduelle, ou objet non renseigné), mais la structure correspond aux autres critères (lieu, date). À vérifier par vous-même avant d'écarter.</li>
+            <li><span class="priority high">Élevée</span> activité ou objet directement sportif (club, installation, centre de culture physique...).</li>
+            <li><span class="priority medium">Moyenne</span> enseignement sportif/loisir, ou mot-clé sportif dans le nom.</li>
+            <li><span class="priority low">Faible</span> aucun indice sportif trouvé automatiquement — à vérifier avant d'écarter.</li>
           </ul>
-          <p class="confidence-warning"><strong>À vérifier par l'agent&nbsp;:</strong> le code NAF est déclaratif et décrit l'activité principale. Pour une association, l'adresse connue peut être celle du siège et non celle du lieu de pratique.</p>
+          <p class="confidence-warning">Le code d'activité est déclaratif. Pour une association, l'adresse connue peut être celle du siège, pas du lieu de pratique.</p>
         </div>
-      </aside>
+      </details>
 
       <div class="table-wrap">
         <table>
@@ -389,25 +393,40 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
       </div>
     </section>
 
-    <section class="card map-card">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Localisation</p>
-          <h2>Carte des structures affichées</h2>
+    <details id="team-block" class="card secondary-block">
+      <summary><p class="eyebrow">Équipe</p> Partager avec des collègues</summary>
+      <div class="secondary-block-body">
+        <div class="actions">
+          <button id="link-shared-button" class="secondary-button" type="button" hidden>Lier le partage (auto)</button>
+          <button id="load-shared-button" class="secondary-button" type="button">Charger le partage</button>
+          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer le partage</button>
         </div>
+        <p class="help">Utilisez un fichier <code>veille-sports-partage.json</code> commun (ex. sur un dossier réseau) pour fusionner vos résultats et décisions avec ceux de vos collègues, sans rien perdre.</p>
+        <p class="help">Sur Chrome/Edge, « Lier le partage (auto) » évite de recliquer à chaque fois : le fichier se recharge à l'ouverture et se réenregistre après chaque décision. Sur Firefox, seuls les boutons manuels fonctionnent.</p>
+        <p class="help">Sans serveur commun, deux enregistrements simultanés peuvent s'écraser l'un l'autre — rechargez avant de modifier si vous n'êtes pas seul(e) à jour.</p>
       </div>
-      <p class="help map-help">Les structures sans coordonnées connues n'apparaissent pas sur la carte. La couleur des points reprend le niveau de confiance.</p>
-      <div id="map"></div>
-    </section>
+    </details>
 
-    <details class="card settings-card">
-      <summary>En savoir plus sur la recherche</summary>
-      <p class="help">La première recherche remonte par défaut sur 30 jours. Ensuite, chaque nouvelle recherche revérifie aussi les 15 derniers jours avant la date affichée : certaines structures mettent du temps à apparaître dans les données publiques, cela évite de les manquer. Les doublons sont automatiquement retirés.</p>
-      <p class="help">En plus des activités sportives connues, une recherche complémentaire est faite sur les noms d'entreprise contenant le mot « sport », pour rattraper les structures mal classées.</p>
-      <p class="help"><strong>Associations&nbsp;:</strong> chaque recherche interroge aussi automatiquement les créations d'associations publiées au Journal officiel — c'est la source la plus à jour, pas besoin de fichier à importer.</p>
-      <p class="help"><strong>Import RNA (facultatif)&nbsp;:</strong> pour un recoupement complémentaire, vous pouvez aussi télécharger un export CSV officiel du Répertoire national des associations, puis utiliser «&nbsp;Importer un fichier RNA&nbsp;». Le fichier reste sur votre poste&nbsp;: seules les associations correspondant aux départements et à la période choisis sont ajoutées, classées par niveau de confiance.</p>
-      <p class="help"><strong>Départements&nbsp;:</strong> cliquez sur le menu « Départements » et cochez un ou plusieurs départements avant de lancer une recherche. Par défaut, seule la Côte-d'Or est sélectionnée.</p>
-      <p class="help"><strong>Recherches longues&nbsp;:</strong> le site des entreprises ne permet pas de ne demander que les créations récentes, il faut donc parcourir toutes les pages de chaque activité pour ne rien manquer. Avant une recherche longue, l'application estime la durée et vous demande de confirmer.</p>
+    <details id="map-block" class="card secondary-block">
+      <summary><p class="eyebrow">Carte</p> Localiser les structures</summary>
+      <div class="secondary-block-body">
+        <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
+        <div id="map"></div>
+      </div>
+    </details>
+
+    <details class="card secondary-block">
+      <summary><p class="eyebrow">Aide</p> En savoir plus</summary>
+      <div class="secondary-block-body">
+        <ul class="help">
+          <li>La recherche couvre 30 jours à la première utilisation, puis revérifie les 15 jours précédents à chaque fois pour ne rien manquer.</li>
+          <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant « sport ».</li>
+          <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
+          <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
+          <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
+        </ul>
+      </div>
     </details>
   </main>
 
@@ -1045,6 +1064,10 @@ if (typeof document !== "undefined") {
       maxZoom: 18
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
+    // La carte vit dans un bloc replié par défaut : Leaflet doit recalculer sa taille
+    // une fois le bloc réellement visible, sinon les tuiles restent mal disposées.
+    const mapBlock = document.querySelector("#map-block");
+    if (mapBlock) mapBlock.addEventListener("toggle", () => { if (mapBlock.open) map.invalidateSize(); });
   }
 
   function updateMap(items) {
@@ -1103,10 +1126,10 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      if (sourceLabel) showMessage(`Fichier partagé rechargé automatiquement (${incoming.length} structure(s)).`);
+      if (sourceLabel) showMessage(`Partage rechargé automatiquement (${incoming.length} structure(s)).`);
       return true;
     } catch {
-      if (sourceLabel) showMessage("Le fichier partagé lié n'a pas pu être relu automatiquement. Utilisez « Charger la liste partagée » manuellement.", true);
+      if (sourceLabel) showMessage("Rechargement automatique du partage impossible — utilisez « Charger le partage ».", true);
       return false;
     }
   }
@@ -1121,8 +1144,8 @@ if (typeof document !== "undefined") {
         await idbSetHandle(handle);
         const loaded = await loadFromSharedHandle();
         showMessage(loaded
-          ? "Fichier partagé lié et chargé : il sera relu à l'ouverture et réenregistré automatiquement après chaque décision."
-          : "Fichier partagé lié, mais illisible pour l'instant (vide ou mal formé) : il sera tout de même réenregistré automatiquement après chaque décision.");
+          ? "Partage lié : rechargé à l'ouverture, réenregistré après chaque décision."
+          : "Partage lié (fichier vide ou illisible pour l'instant) : il sera réenregistré après chaque décision.");
       } catch {
         // L'agent a annulé la sélection du fichier : rien à faire.
       }
@@ -1138,7 +1161,7 @@ if (typeof document !== "undefined") {
           sharedFileHandle = storedHandle;
           await loadFromSharedHandle("ouverture");
         } else {
-          showMessage("Un fichier partagé était lié, mais l'autorisation a expiré. Cliquez sur « Lier un fichier partagé » pour la renouveler.");
+          showMessage("Autorisation du fichier partagé expirée — recliquez sur « Lier le partage (auto) ».");
         }
       } catch {
         // Pas de fichier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
@@ -1185,7 +1208,7 @@ if (typeof document !== "undefined") {
     if (Number.isNaN(chosen.getTime())) return;
     const daysAgo = (Date.now() - chosen.getTime()) / 86400000;
     if (daysAgo > WIDE_RANGE_WARNING_DAYS) {
-      showMessage("Vous avez choisi une date assez ancienne. Sur une aussi longue période, le site des entreprises peut ne pas renvoyer tous les résultats. Si la liste semble incomplète, refaites une recherche sur une période plus courte.");
+      showMessage("Date ancienne choisie : sur une aussi longue période, certains résultats peuvent manquer. Essayez une période plus courte si la liste semble incomplète.");
     }
   });
 
@@ -1194,7 +1217,7 @@ if (typeof document !== "undefined") {
     const departments = readSelectedDepartments(departmentCheckboxes);
     button.disabled = true;
     button.textContent = "Estimation de la durée…";
-    showMessage("Estimation du temps nécessaire avant de lancer la recherche…");
+    showMessage("Estimation de la durée de la recherche…");
     try {
       // Le site des entreprises ne permet pas de ne demander que les nouveautés : il faut
       // parcourir toutes les pages de chaque activité pour ne rien manquer. On mesure donc
@@ -1213,7 +1236,7 @@ if (typeof document !== "undefined") {
           "Voulez-vous continuer ? (Astuce : réduire le nombre de départements sélectionnés accélère la recherche.)"
         );
         if (!proceed) {
-          showMessage("Recherche annulée. Réduisez la période ou le nombre de départements pour une recherche plus rapide.");
+          showMessage("Recherche annulée — réduisez la période ou les départements pour aller plus vite.");
           return;
         }
       }
@@ -1254,11 +1277,11 @@ if (typeof document !== "undefined") {
       page = 1;
       renderNow();
       await saveToSharedHandle();
-      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées en ${departmentsLabel(departments)} (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
-      if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
+      let summary = `${state.items.length} structure(s) trouvée(s) depuis le ${formatDate(sinceInput.value)} en ${departmentsLabel(departments)} (dont ${joafeItems.length} au Journal officiel).`;
+      if (incompleteCount > 0) summary += " Attention, liste peut-être incomplète (beaucoup de résultats sur au moins une source).";
       showMessage(summary);
     } catch (error) {
-      showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion Internet ou réessayez dans quelques minutes.`, true);
+      showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion.`, true);
     } finally {
       button.disabled = false;
       button.innerHTML = '<span aria-hidden="true">↻</span> Rechercher les nouveautés';
@@ -1270,7 +1293,7 @@ if (typeof document !== "undefined") {
     const file = event.target.files[0];
     if (!file) return;
     const departments = readSelectedDepartments(departmentCheckboxes);
-    showMessage(`Analyse du fichier RNA « ${file.name} »…`);
+    showMessage(`Analyse de « ${file.name} »…`);
     try {
       const imported = extractRnaItems(await file.text(), sinceInput.value, departments);
       for (const item of imported) {
@@ -1286,7 +1309,7 @@ if (typeof document !== "undefined") {
       page = 1;
       renderNow();
       await saveToSharedHandle();
-      showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
+      showMessage(`${imported.length} association(s) candidate(s) trouvée(s) dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
     } finally {
@@ -1311,7 +1334,7 @@ if (typeof document !== "undefined") {
   document.querySelector("#shared-input").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
-    showMessage(`Lecture du fichier partagé « ${file.name} »…`);
+    showMessage(`Lecture de « ${file.name} »…`);
     try {
       const payload = JSON.parse(await file.text());
       const incoming = Array.isArray(payload.items) ? payload.items : [];
@@ -1319,7 +1342,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      showMessage(`${incoming.length} structure(s) lues dans le fichier partagé, fusionnées avec votre liste (la décision la plus récente est toujours conservée).`);
+      showMessage(`${incoming.length} structure(s) fusionnée(s) depuis le partage.`);
     } catch (error) {
       showMessage(`Fichier partagé illisible : ${error.message}.`, true);
     } finally {
@@ -1335,7 +1358,7 @@ if (typeof document !== "undefined") {
     link.download = SHARED_FILE_NAME;
     link.click();
     URL.revokeObjectURL(link.href);
-    showMessage(`Fichier « ${SHARED_FILE_NAME} » téléchargé : déposez-le dans votre dossier réseau partagé (en écrasant l'ancien) pour que vos collègues le voient.`);
+    showMessage(`« ${SHARED_FILE_NAME} » téléchargé — déposez-le sur le dossier partagé (en écrasant l'ancien).`);
   });
 }
 </script>
