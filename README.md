@@ -102,7 +102,15 @@ Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base
 - **« Charger la liste partagée »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats locaux : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
 - **« Enregistrer sur le partage »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
 
-**Limite à connaître** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). Le réflexe à prendre : charger la liste partagée avant de commencer à qualifier des structures, et enregistrer en fin de session.
+### Automatisation du chargement/enregistrement (Chrome, Edge)
+
+Sur les navigateurs qui le permettent (Chrome, Edge — pas Firefox), le bouton **« Lier un fichier partagé (auto) »** apparaît à côté des deux boutons manuels. Il permet de choisir une fois le fichier `veille-sports-partage.json` du dossier réseau partagé ; ensuite :
+- il est **relu automatiquement à chaque ouverture** de l'application (fusion avec vos résultats locaux, comme un chargement manuel) ;
+- il est **réenregistré automatiquement** après chaque recherche, chaque import RNA, et chaque changement de décision — sans avoir à cliquer sur « Enregistrer sur le partage ».
+
+Le lien est mémorisé sur ce poste (navigateur) pour les prochaines ouvertures. Si l'autorisation d'accès au fichier expire (cas rare), un message invite à recliquer sur « Lier un fichier partagé » pour la renouveler ; en attendant, les boutons manuels continuent de fonctionner normalement. Sur Firefox, ce bouton n'apparaît pas du tout : seul le fonctionnement manuel (charger/enregistrer par clic) est disponible.
+
+**Limite à connaître, avec ou sans automatisation** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). Le réflexe à prendre en mode manuel : charger la liste partagée avant de commencer à qualifier des structures, et enregistrer en fin de session. En mode automatique (Chrome/Edge), ce réflexe n'est plus nécessaire pour l'enregistrement (il se fait après chaque décision), mais le risque d'écrasement entre deux agents qui travaillent au même instant subsiste toujours, faute de vrai serveur.
 
 ### Alertes de fraîcheur
 
@@ -128,6 +136,18 @@ Le tableau affiche 25 résultats par page, avec des boutons Précédent/Suivant 
 ### Autres sources envisagées, non encore intégrées
 
 Le Recensement des équipements sportifs (RES, `equipements.sports.gouv.fr`) recense les lieux de pratique physiques et pourrait servir de recoupement supplémentaire (un équipement récent sans structure exploitante identifiée serait un signal à vérifier). Cette piste n'a pas encore été implémentée : la structure exacte d'un export RES Côte-d'Or (colonnes disponibles, présence ou non d'une date exploitable) doit être vérifiée sur un fichier réel avant de développer cette fonctionnalité.
+
+### Interface : une page organisée par priorité d'usage
+
+L'application reste une page unique, mais organisée pour que le geste quotidien (choisir une date, lancer la recherche, traiter les résultats) reste toujours visible en haut, tandis que ce qui ne sert qu'occasionnellement est replié par défaut dans trois blocs distincts (dépliables au clic) :
+
+- **Équipe** — partage du fichier commun avec les collègues.
+- **Carte** — localisation des structures détectées.
+- **Aide** — explications détaillées (couverture de la recherche, calcul du niveau de confiance, limites connues), regroupées en un seul endroit plutôt que dispersées sous forme de notes au fil de la page.
+
+Les textes visibles (boutons, libellés, messages) ont été raccourcis pour rester directs (« Importer RNA », « Exporter en CSV », « Lier le partage (auto) »...) ; les explications plus longues qui existaient auparavant en permanence à l'écran ont été déplacées dans le bloc Aide, accessible à la demande sans encombrer l'écran principal.
+
+La palette de couleurs a aussi été revue (bleu pour l'action principale, teal pour distinguer les blocs secondaires, rouge/ambre réservés aux niveaux de confiance et aux alertes) pour mieux hiérarchiser visuellement l'écran.
 
 ## Tests
 

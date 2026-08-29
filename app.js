@@ -296,6 +296,40 @@ function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// Stocke la référence (FileSystemFileHandle) vers le fichier partagé lié par l'agent, pour
+// pouvoir le recharger/réenregistrer automatiquement d'une ouverture à l'autre. localStorage
+// ne peut pas stocker cet objet : IndexedDB est le seul stockage local qui le permette.
+const HANDLE_DB_NAME = "veille-sports-handles";
+const HANDLE_STORE_NAME = "handles";
+const HANDLE_KEY = "sharedFileHandle";
+
+function openHandleDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(HANDLE_DB_NAME, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(HANDLE_STORE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function idbGetHandle() {
+  const db = await openHandleDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(HANDLE_STORE_NAME, "readonly").objectStore(HANDLE_STORE_NAME).get(HANDLE_KEY);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function idbSetHandle(handle) {
+  const db = await openHandleDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(HANDLE_STORE_NAME, "readwrite").objectStore(HANDLE_STORE_NAME).put(handle, HANDLE_KEY);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 // Demande le nom/les initiales de l'agent une seule fois par poste, pour identifier qui a
 // pris quelle décision quand plusieurs agents partagent leurs résultats.
 function getAgentName() {
@@ -591,6 +625,10 @@ if (typeof document !== "undefined") {
       maxZoom: 18
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
+    // La carte vit dans un bloc replié par défaut : Leaflet doit recalculer sa taille
+    // une fois le bloc réellement visible, sinon les tuiles restent mal disposées.
+    const mapBlock = document.querySelector("#map-block");
+    if (mapBlock) mapBlock.addEventListener("toggle", () => { if (mapBlock.open) map.invalidateSize(); });
   }
 
   function updateMap(items) {
@@ -614,6 +652,84 @@ if (typeof document !== "undefined") {
     page = currentPage;
     updateMap(mapItems);
   };
+
+  // Chargement/enregistrement automatiques du fichier partagé, disponibles uniquement sur les
+  // navigateurs qui savent lire/écrire un fichier local choisi une fois (Chrome, Edge...).
+  // Sur les autres (Firefox notamment), les boutons manuels "Charger"/"Enregistrer sur le
+  // partage" restent le seul moyen, exactement comme avant.
+  const supportsFileHandles = typeof window !== "undefined" && typeof window.showOpenFilePicker === "function" && typeof indexedDB !== "undefined";
+  let sharedFileHandle = null;
+  const linkSharedButton = document.querySelector("#link-shared-button");
+  if (linkSharedButton) linkSharedButton.hidden = !supportsFileHandles;
+
+  async function saveToSharedHandle() {
+    if (!sharedFileHandle || !state.items.length) return;
+    try {
+      const writable = await sharedFileHandle.createWritable();
+      await writable.write(JSON.stringify({ exportedAt: new Date().toISOString(), items: state.items }, null, 2));
+      await writable.close();
+    } catch {
+      // Écriture automatique en échec (droit révoqué, fichier déplacé...) : l'agent garde la
+      // main via "Enregistrer sur le partage", rien n'est perdu localement.
+    }
+  }
+
+  // Renvoie true si la lecture a réussi. Un fichier vide (première liaison, fichier tout
+  // juste créé par l'agent) compte comme réussi, avec zéro structure à fusionner.
+  async function loadFromSharedHandle(sourceLabel) {
+    if (!sharedFileHandle) return false;
+    try {
+      const file = await sharedFileHandle.getFile();
+      const text = (await file.text()).trim();
+      const payload = text ? JSON.parse(text) : { items: [] };
+      const incoming = Array.isArray(payload.items) ? payload.items : [];
+      state.items = flagProbableDuplicates(mergeItemLists(state.items, incoming));
+      saveState(state);
+      page = 1;
+      renderNow();
+      if (sourceLabel) showMessage(`Partage rechargé automatiquement (${incoming.length} structure(s)).`);
+      return true;
+    } catch {
+      if (sourceLabel) showMessage("Rechargement automatique du partage impossible — utilisez « Charger le partage ».", true);
+      return false;
+    }
+  }
+
+  if (linkSharedButton) {
+    linkSharedButton.addEventListener("click", async () => {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: "Fichier partagé JSON", accept: { "application/json": [".json"] } }]
+        });
+        sharedFileHandle = handle;
+        await idbSetHandle(handle);
+        const loaded = await loadFromSharedHandle();
+        showMessage(loaded
+          ? "Partage lié : rechargé à l'ouverture, réenregistré après chaque décision."
+          : "Partage lié (fichier vide ou illisible pour l'instant) : il sera réenregistré après chaque décision.");
+      } catch {
+        // L'agent a annulé la sélection du fichier : rien à faire.
+      }
+    });
+  }
+
+  if (supportsFileHandles) {
+    (async () => {
+      try {
+        const storedHandle = await idbGetHandle();
+        if (!storedHandle) return;
+        if ((await storedHandle.queryPermission({ mode: "readwrite" })) === "granted") {
+          sharedFileHandle = storedHandle;
+          await loadFromSharedHandle("ouverture");
+        } else {
+          showMessage("Autorisation du fichier partagé expirée — recliquez sur « Lier le partage (auto) ».");
+        }
+      } catch {
+        // Pas de fichier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
+      }
+    })();
+    if (typeof window !== "undefined") window.addEventListener("pagehide", () => { saveToSharedHandle(); });
+  }
 
   const updateDepartmentSummary = () => {
     departmentSummary.textContent = departmentsLabel(readSelectedDepartments(departmentCheckboxes));
@@ -653,7 +769,7 @@ if (typeof document !== "undefined") {
     if (Number.isNaN(chosen.getTime())) return;
     const daysAgo = (Date.now() - chosen.getTime()) / 86400000;
     if (daysAgo > WIDE_RANGE_WARNING_DAYS) {
-      showMessage("Vous avez choisi une date assez ancienne. Sur une aussi longue période, le site des entreprises peut ne pas renvoyer tous les résultats. Si la liste semble incomplète, refaites une recherche sur une période plus courte.");
+      showMessage("Date ancienne choisie : sur une aussi longue période, certains résultats peuvent manquer. Essayez une période plus courte si la liste semble incomplète.");
     }
   });
 
@@ -662,7 +778,7 @@ if (typeof document !== "undefined") {
     const departments = readSelectedDepartments(departmentCheckboxes);
     button.disabled = true;
     button.textContent = "Estimation de la durée…";
-    showMessage("Estimation du temps nécessaire avant de lancer la recherche…");
+    showMessage("Estimation de la durée de la recherche…");
     try {
       // Le site des entreprises ne permet pas de ne demander que les nouveautés : il faut
       // parcourir toutes les pages de chaque activité pour ne rien manquer. On mesure donc
@@ -681,7 +797,7 @@ if (typeof document !== "undefined") {
           "Voulez-vous continuer ? (Astuce : réduire le nombre de départements sélectionnés accélère la recherche.)"
         );
         if (!proceed) {
-          showMessage("Recherche annulée. Réduisez la période ou le nombre de départements pour une recherche plus rapide.");
+          showMessage("Recherche annulée — réduisez la période ou les départements pour aller plus vite.");
           return;
         }
       }
@@ -721,11 +837,12 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées en ${departmentsLabel(departments)} (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
-      if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
+      await saveToSharedHandle();
+      let summary = `${state.items.length} structure(s) trouvée(s) depuis le ${formatDate(sinceInput.value)} en ${departmentsLabel(departments)} (dont ${joafeItems.length} au Journal officiel).`;
+      if (incompleteCount > 0) summary += " Attention, liste peut-être incomplète (beaucoup de résultats sur au moins une source).";
       showMessage(summary);
     } catch (error) {
-      showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion Internet ou réessayez dans quelques minutes.`, true);
+      showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion.`, true);
     } finally {
       button.disabled = false;
       button.innerHTML = '<span aria-hidden="true">↻</span> Rechercher les nouveautés';
@@ -737,7 +854,7 @@ if (typeof document !== "undefined") {
     const file = event.target.files[0];
     if (!file) return;
     const departments = readSelectedDepartments(departmentCheckboxes);
-    showMessage(`Analyse du fichier RNA « ${file.name} »…`);
+    showMessage(`Analyse de « ${file.name} »…`);
     try {
       const imported = extractRnaItems(await file.text(), sinceInput.value, departments);
       for (const item of imported) {
@@ -752,7 +869,8 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
+      await saveToSharedHandle();
+      showMessage(`${imported.length} association(s) candidate(s) trouvée(s) dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
     } finally {
@@ -761,7 +879,7 @@ if (typeof document !== "undefined") {
   });
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
 
-  document.querySelector("#results-body").addEventListener("change", event => {
+  document.querySelector("#results-body").addEventListener("change", async event => {
     if (!event.target.matches(".decision-select")) return;
     const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
     if (!item) return;
@@ -770,13 +888,14 @@ if (typeof document !== "undefined") {
     item.decidedAt = new Date().toISOString();
     saveState(state);
     renderNow();
+    await saveToSharedHandle();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
   document.querySelector("#shared-input").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
-    showMessage(`Lecture du fichier partagé « ${file.name} »…`);
+    showMessage(`Lecture de « ${file.name} »…`);
     try {
       const payload = JSON.parse(await file.text());
       const incoming = Array.isArray(payload.items) ? payload.items : [];
@@ -784,7 +903,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      showMessage(`${incoming.length} structure(s) lues dans le fichier partagé, fusionnées avec votre liste (la décision la plus récente est toujours conservée).`);
+      showMessage(`${incoming.length} structure(s) fusionnée(s) depuis le partage.`);
     } catch (error) {
       showMessage(`Fichier partagé illisible : ${error.message}.`, true);
     } finally {
@@ -800,6 +919,6 @@ if (typeof document !== "undefined") {
     link.download = SHARED_FILE_NAME;
     link.click();
     URL.revokeObjectURL(link.href);
-    showMessage(`Fichier « ${SHARED_FILE_NAME} » téléchargé : déposez-le dans votre dossier réseau partagé (en écrasant l'ancien) pour que vos collègues le voient.`);
+    showMessage(`« ${SHARED_FILE_NAME} » téléchargé — déposez-le sur le dossier partagé (en écrasant l'ancien).`);
   });
 }
