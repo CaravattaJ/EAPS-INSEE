@@ -296,6 +296,40 @@ function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// Stocke la référence (FileSystemFileHandle) vers le fichier partagé lié par l'agent, pour
+// pouvoir le recharger/réenregistrer automatiquement d'une ouverture à l'autre. localStorage
+// ne peut pas stocker cet objet : IndexedDB est le seul stockage local qui le permette.
+const HANDLE_DB_NAME = "veille-sports-handles";
+const HANDLE_STORE_NAME = "handles";
+const HANDLE_KEY = "sharedFileHandle";
+
+function openHandleDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(HANDLE_DB_NAME, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(HANDLE_STORE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function idbGetHandle() {
+  const db = await openHandleDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(HANDLE_STORE_NAME, "readonly").objectStore(HANDLE_STORE_NAME).get(HANDLE_KEY);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function idbSetHandle(handle) {
+  const db = await openHandleDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(HANDLE_STORE_NAME, "readwrite").objectStore(HANDLE_STORE_NAME).put(handle, HANDLE_KEY);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 // Demande le nom/les initiales de l'agent une seule fois par poste, pour identifier qui a
 // pris quelle décision quand plusieurs agents partagent leurs résultats.
 function getAgentName() {
@@ -615,6 +649,84 @@ if (typeof document !== "undefined") {
     updateMap(mapItems);
   };
 
+  // Chargement/enregistrement automatiques du fichier partagé, disponibles uniquement sur les
+  // navigateurs qui savent lire/écrire un fichier local choisi une fois (Chrome, Edge...).
+  // Sur les autres (Firefox notamment), les boutons manuels "Charger"/"Enregistrer sur le
+  // partage" restent le seul moyen, exactement comme avant.
+  const supportsFileHandles = typeof window !== "undefined" && typeof window.showOpenFilePicker === "function" && typeof indexedDB !== "undefined";
+  let sharedFileHandle = null;
+  const linkSharedButton = document.querySelector("#link-shared-button");
+  if (linkSharedButton) linkSharedButton.hidden = !supportsFileHandles;
+
+  async function saveToSharedHandle() {
+    if (!sharedFileHandle || !state.items.length) return;
+    try {
+      const writable = await sharedFileHandle.createWritable();
+      await writable.write(JSON.stringify({ exportedAt: new Date().toISOString(), items: state.items }, null, 2));
+      await writable.close();
+    } catch {
+      // Écriture automatique en échec (droit révoqué, fichier déplacé...) : l'agent garde la
+      // main via "Enregistrer sur le partage", rien n'est perdu localement.
+    }
+  }
+
+  // Renvoie true si la lecture a réussi. Un fichier vide (première liaison, fichier tout
+  // juste créé par l'agent) compte comme réussi, avec zéro structure à fusionner.
+  async function loadFromSharedHandle(sourceLabel) {
+    if (!sharedFileHandle) return false;
+    try {
+      const file = await sharedFileHandle.getFile();
+      const text = (await file.text()).trim();
+      const payload = text ? JSON.parse(text) : { items: [] };
+      const incoming = Array.isArray(payload.items) ? payload.items : [];
+      state.items = flagProbableDuplicates(mergeItemLists(state.items, incoming));
+      saveState(state);
+      page = 1;
+      renderNow();
+      if (sourceLabel) showMessage(`Fichier partagé rechargé automatiquement (${incoming.length} structure(s)).`);
+      return true;
+    } catch {
+      if (sourceLabel) showMessage("Le fichier partagé lié n'a pas pu être relu automatiquement. Utilisez « Charger la liste partagée » manuellement.", true);
+      return false;
+    }
+  }
+
+  if (linkSharedButton) {
+    linkSharedButton.addEventListener("click", async () => {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: "Fichier partagé JSON", accept: { "application/json": [".json"] } }]
+        });
+        sharedFileHandle = handle;
+        await idbSetHandle(handle);
+        const loaded = await loadFromSharedHandle();
+        showMessage(loaded
+          ? "Fichier partagé lié et chargé : il sera relu à l'ouverture et réenregistré automatiquement après chaque décision."
+          : "Fichier partagé lié, mais illisible pour l'instant (vide ou mal formé) : il sera tout de même réenregistré automatiquement après chaque décision.");
+      } catch {
+        // L'agent a annulé la sélection du fichier : rien à faire.
+      }
+    });
+  }
+
+  if (supportsFileHandles) {
+    (async () => {
+      try {
+        const storedHandle = await idbGetHandle();
+        if (!storedHandle) return;
+        if ((await storedHandle.queryPermission({ mode: "readwrite" })) === "granted") {
+          sharedFileHandle = storedHandle;
+          await loadFromSharedHandle("ouverture");
+        } else {
+          showMessage("Un fichier partagé était lié, mais l'autorisation a expiré. Cliquez sur « Lier un fichier partagé » pour la renouveler.");
+        }
+      } catch {
+        // Pas de fichier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
+      }
+    })();
+    if (typeof window !== "undefined") window.addEventListener("pagehide", () => { saveToSharedHandle(); });
+  }
+
   const updateDepartmentSummary = () => {
     departmentSummary.textContent = departmentsLabel(readSelectedDepartments(departmentCheckboxes));
   };
@@ -721,6 +833,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
+      await saveToSharedHandle();
       let summary = `${state.items.length} structure(s) créée(s) depuis le ${formatDate(sinceInput.value)} ont été trouvées en ${departmentsLabel(departments)} (dont ${joafeItems.length} publication(s) au Journal officiel des associations).`;
       if (incompleteCount > 0) summary += " Attention : pour au moins une source, il y avait beaucoup de résultats et la liste pourrait ne pas être complète.";
       showMessage(summary);
@@ -752,6 +865,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
+      await saveToSharedHandle();
       showMessage(`${imported.length} association(s) sportive(s) candidate(s) ont été trouvées dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
@@ -761,7 +875,7 @@ if (typeof document !== "undefined") {
   });
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
 
-  document.querySelector("#results-body").addEventListener("change", event => {
+  document.querySelector("#results-body").addEventListener("change", async event => {
     if (!event.target.matches(".decision-select")) return;
     const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
     if (!item) return;
@@ -770,6 +884,7 @@ if (typeof document !== "undefined") {
     item.decidedAt = new Date().toISOString();
     saveState(state);
     renderNow();
+    await saveToSharedHandle();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
