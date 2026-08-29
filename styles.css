@@ -97,6 +97,7 @@ h2 { margin: 7px 0 0; font-size: clamp(1.4rem, 3vw, 2rem); color: var(--navy); }
 .metric { padding: 20px 22px; }
 .metric-label { display: block; margin-bottom: 9px; color: var(--muted); font-size: .86rem; }
 .metric strong { color: var(--navy); font-size: 1.45rem; }
+.metric-sub { display: block; margin-top: 5px; color: var(--muted); font-size: .8rem; }
 
 .message { margin: 0 0 18px; padding: 13px 16px; border-radius: 9px; border: 1px solid #b7cbf7; background: var(--blue-pale); color: #1e3a8a; font-size: .92rem; }
 .message.error { border-color: #f3c3c3; background: var(--red-pale); color: var(--red); }

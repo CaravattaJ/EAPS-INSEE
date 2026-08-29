@@ -48,7 +48,7 @@
         </div>
       </div>
       <button id="search-button" class="primary-button" type="button">
-        <span aria-hidden="true">↻</span> Rechercher les nouveautés
+        <span aria-hidden="true">↻</span> Rechercher
       </button>
     </section>
 
@@ -56,6 +56,7 @@
       <article class="metric card">
         <span class="metric-label">Dernière recherche</span>
         <strong id="last-sync">Jamais</strong>
+        <span id="last-sync-since" class="metric-sub"></span>
       </article>
       <article class="metric card">
         <span class="metric-label">Structures trouvées</span>
@@ -113,6 +114,7 @@
               <th><button type="button" class="sort-button" data-sort="name">Structure</button></th>
               <th><button type="button" class="sort-button" data-sort="commune">Commune</button></th>
               <th><button type="button" class="sort-button" data-sort="activity">Activité</button></th>
+              <th>Description</th>
               <th><button type="button" class="sort-button" data-sort="creationDate">Création</button></th>
               <th>Décision</th>
             </tr>
