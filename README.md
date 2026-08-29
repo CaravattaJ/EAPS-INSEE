@@ -41,6 +41,10 @@ Le niveau de confiance suit la même logique que pour le RNA : la catégorie d'a
 
 L'import RNA manuel reste utile en complément (recoupement, données plus anciennes), mais n'est plus la seule source pour les associations : sans lui, la recherche automatique couvre déjà les nouvelles créations.
 
+### Libellé des codes NAF et description de l'activité
+
+Le tableau des résultats affiche désormais, en plus du code NAF, le libellé correspondant (ex. « Activités de clubs de sports (93.12Z) ») pour les structures issues de Sirene. Une colonne « Description » complète l'information avec le texte libre de l'objet de l'association tel que publié au Journal officiel (source JOAFE), quand il est disponible ; Sirene ne fournit pas de description libre au niveau de l'établissement, la colonne reste alors vide (« — »).
+
 ### Codes NAF surveillés et raison de leur inclusion/exclusion
 
 | Code | Libellé | Décision | Raison |

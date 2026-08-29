@@ -2,6 +2,19 @@ const API_BASE = "https://recherche-entreprises.api.gouv.fr/search";
 const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z", "93.29Z"];
 const HIGH_PRIORITY_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z"];
 const MEDIUM_PRIORITY_CODES = ["85.51Z"];
+// Libellés des codes NAF/APE utilisés, pour affichage : l'agent ne connaît pas forcément
+// la signification d'un code comme "93.12Z" à la simple lecture du tableau.
+const NAF_LABELS = {
+  "93.11Z": "Gestion d'installations sportives",
+  "93.12Z": "Activités de clubs de sports",
+  "93.13Z": "Activités des centres de culture physique",
+  "93.19Z": "Autres activités liées au sport",
+  "85.51Z": "Enseignement de disciplines sportives et d'activités de loisirs",
+  "93.29Z": "Autres activités récréatives et de loisirs"
+};
+function activityLabel(code) {
+  return NAF_LABELS[code] ? `${NAF_LABELS[code]} (${code})` : code;
+}
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const AGENT_NAME_KEY = "veille-sports-agent-name";
 const SHARED_FILE_NAME = "veille-sports-partage.json";
@@ -128,6 +141,7 @@ function normalizeResult(result, establishment, code) {
     commune: address.libelle_commune || item.libelle_commune || "Non renseignée",
     postalCode: address.code_postal || item.code_postal || "",
     activity: item.activite_principale || code,
+    activityLabel: activityLabel(item.activite_principale || code),
     creationDate: item.date_creation || result.date_creation || "",
     association: Boolean(result.complements?.est_association),
     rna: result.identifiant_association || result.complements?.identifiant_association || "",
@@ -532,11 +546,13 @@ function sortItems(items, column, direction = "asc") {
 
 function render(state, query = "", options = {}) {
   const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE } = options;
-  let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity].join(" ").toLowerCase().includes(query.toLowerCase()));
+  let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
   filtered = sortItems(filtered, sortColumn, sortDirection);
   const { pageItems, currentPage, totalPages, total } = paginate(filtered, page, pageSize);
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
+  const lastSyncSinceEl = document.querySelector("#last-sync-since");
+  if (lastSyncSinceEl) lastSyncSinceEl.textContent = state.lastSearchSince ? `Structures depuis le ${formatDate(state.lastSearchSince)}` : "";
   document.querySelector("#new-count").textContent = state.items.length;
   document.querySelector("#pending-count").textContent = state.items.filter(item => item.priority === "Faible").length;
   document.querySelector("#empty-state").hidden = filtered.length > 0;
@@ -560,7 +576,8 @@ function render(state, query = "", options = {}) {
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
       <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
-      <td>${escapeHtml(item.activity)}</td>
+      <td>${escapeHtml(item.activityLabel || item.activity)}</td>
+      <td>${item.object ? escapeHtml(item.object) : '<span class="identifier">—</span>'}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
       <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
     </tr>`).join("");
@@ -580,7 +597,7 @@ function timestampForFilename(date = new Date()) {
 }
 
 function exportCsv(items) {
-  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activity, item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || ""])];
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || ""])];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -642,7 +659,7 @@ if (typeof document !== "undefined") {
         weight: 2,
         fillOpacity: 0.75
       })
-        .bindPopup(`<strong>${escapeHtml(item.name)}</strong><br>${escapeHtml(item.commune)} (${escapeHtml(item.postalCode)})<br>${escapeHtml(item.activity)}<br>Créée le ${formatDate(item.creationDate)}`)
+        .bindPopup(`<strong>${escapeHtml(item.name)}</strong><br>${escapeHtml(item.commune)} (${escapeHtml(item.postalCode)})<br>${escapeHtml(item.activityLabel || item.activity)}<br>Créée le ${formatDate(item.creationDate)}`)
         .addTo(markerLayer);
     }
   }
@@ -740,6 +757,13 @@ if (typeof document !== "undefined") {
   }
   updateDepartmentSummary();
 
+  const departmentDropdown = document.querySelector("#department-dropdown");
+  if (departmentDropdown) {
+    document.addEventListener("click", event => {
+      if (departmentDropdown.open && !departmentDropdown.contains(event.target)) departmentDropdown.open = false;
+    });
+  }
+
   sinceInput.value = state.lastSync ? new Date(new Date(state.lastSync).getTime() - RECOVERY_DAYS * 86400000).toISOString().slice(0, 10) : defaultSince();
   renderNow();
 
@@ -833,6 +857,7 @@ if (typeof document !== "undefined") {
       // la décision déjà prise sur une structure n'est jamais écrasée par le rafraîchissement.
       state.items = flagProbableDuplicates(mergeItemLists(state.items, [...keywordBatch, ...batches.flat(), ...joafeItems]));
       state.lastSync = new Date().toISOString();
+      state.lastSearchSince = sinceInput.value;
       state.departments = departments;
       saveState(state);
       page = 1;
@@ -845,7 +870,7 @@ if (typeof document !== "undefined") {
       showMessage(`Recherche impossible : ${error.message}. Vérifiez votre connexion.`, true);
     } finally {
       button.disabled = false;
-      button.innerHTML = '<span aria-hidden="true">↻</span> Rechercher les nouveautés';
+      button.innerHTML = '<span aria-hidden="true">↻</span> Rechercher';
     }
   });
 
