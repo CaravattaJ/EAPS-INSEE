@@ -18,6 +18,7 @@ function activityLabel(code) {
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const AGENT_NAME_KEY = "veille-sports-agent-name";
 const SHARED_FILE_NAME = "veille-sports-partage.json";
+const SHARED_BACKUPS_DIR = "historique-partage";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
 const MAX_RETRIES = 4;
@@ -670,44 +671,93 @@ if (typeof document !== "undefined") {
     updateMap(mapItems);
   };
 
-  // Chargement/enregistrement automatiques du fichier partagé, disponibles uniquement sur les
-  // navigateurs qui savent lire/écrire un fichier local choisi une fois (Chrome, Edge...).
-  // Sur les autres (Firefox notamment), les boutons manuels "Charger"/"Enregistrer sur le
-  // partage" restent le seul moyen, exactement comme avant.
-  const supportsFileHandles = typeof window !== "undefined" && typeof window.showOpenFilePicker === "function" && typeof indexedDB !== "undefined";
-  let sharedFileHandle = null;
+  // Chargement/enregistrement automatiques du partage, disponibles uniquement sur les
+  // navigateurs qui savent lire/écrire un dossier local choisi une fois (Chrome, Edge...).
+  // Un dossier (et non un simple fichier) est nécessaire pour pouvoir y déposer des
+  // sauvegardes horodatées à côté du fichier partagé. Sur les autres navigateurs
+  // (Firefox notamment), les boutons manuels "Charger"/"Enregistrer sur le partage"
+  // restent le seul moyen, exactement comme avant.
+  const supportsFileHandles = typeof window !== "undefined" && typeof window.showDirectoryPicker === "function" && typeof indexedDB !== "undefined";
+  let sharedDirHandle = null;
+  // Dernier contenu du fichier partagé effectivement lu ou écrit par cette session : sert
+  // à détecter qu'un(e) collègue a enregistré entre-temps, pour prévenir plutôt que fusionner
+  // en silence.
+  let lastKnownSharedText = null;
   const linkSharedButton = document.querySelector("#link-shared-button");
   if (linkSharedButton) linkSharedButton.hidden = !supportsFileHandles;
 
-  async function saveToSharedHandle() {
-    if (!sharedFileHandle || !state.items.length) return;
+  async function getSharedFileHandle(dirHandle) {
+    return dirHandle.getFileHandle(SHARED_FILE_NAME, { create: true });
+  }
+
+  // Dépose une copie horodatée du contenu passé dans un sous-dossier "historique-partage",
+  // avant tout enregistrement qui le remplacerait. Filet de sécurité : une fusion malheureuse
+  // ou un enregistrement par erreur reste récupérable, sans intervention de l'agent.
+  async function backupSharedFile(dirHandle, text) {
+    if (!text) return;
     try {
-      const writable = await sharedFileHandle.createWritable();
-      await writable.write(JSON.stringify({ exportedAt: new Date().toISOString(), items: state.items }, null, 2));
+      const backupsDir = await dirHandle.getDirectoryHandle(SHARED_BACKUPS_DIR, { create: true });
+      const backupHandle = await backupsDir.getFileHandle(`veille-sports-partage-${timestampForFilename()}.json`, { create: true });
+      const writable = await backupHandle.createWritable();
+      await writable.write(text);
       await writable.close();
     } catch {
-      // Écriture automatique en échec (droit révoqué, fichier déplacé...) : l'agent garde la
-      // main via "Enregistrer sur le partage", rien n'est perdu localement.
+      // Sauvegarde best-effort : son échec ne doit jamais empêcher l'enregistrement principal.
+    }
+  }
+
+  async function saveToSharedHandle() {
+    if (!sharedDirHandle || !state.items.length) return;
+    try {
+      const fileHandle = await getSharedFileHandle(sharedDirHandle);
+      const file = await fileHandle.getFile();
+      const currentText = (await file.text()).trim();
+      const currentPayload = currentText ? JSON.parse(currentText) : { items: [] };
+      const currentItems = Array.isArray(currentPayload.items) ? currentPayload.items : [];
+      // Fusion non destructive : on ne remplace jamais aveuglément le fichier partagé par
+      // notre état local, on fusionne avec ce qu'il contient réellement au moment d'écrire —
+      // un(e) collègue a pu enregistrer entre notre dernière lecture et maintenant.
+      const merged = flagProbableDuplicates(mergeItemLists(currentItems, state.items));
+      if (currentText && lastKnownSharedText !== null && currentText !== lastKnownSharedText) {
+        showMessage("Le partage avait été modifié par quelqu'un d'autre entre-temps : les deux versions ont été fusionnées, rien n'a été perdu.");
+      }
+      await backupSharedFile(sharedDirHandle, currentText);
+      const newText = JSON.stringify({ exportedAt: new Date().toISOString(), items: merged }, null, 2);
+      const writable = await fileHandle.createWritable();
+      await writable.write(newText);
+      await writable.close();
+      lastKnownSharedText = newText;
+      state.items = merged;
+      saveState(state);
+      renderNow();
+    } catch {
+      // Écriture automatique en échec (droit révoqué, fichier déplacé, JSON corrompu sur le
+      // partage...) : l'agent garde la main via "Enregistrer sur le partage", rien n'est perdu
+      // localement — on ne remplace jamais le partage par un contenu qu'on n'a pas pu valider.
     }
   }
 
   // Renvoie true si la lecture a réussi. Un fichier vide (première liaison, fichier tout
   // juste créé par l'agent) compte comme réussi, avec zéro structure à fusionner.
   async function loadFromSharedHandle(sourceLabel) {
-    if (!sharedFileHandle) return false;
+    if (!sharedDirHandle) return false;
     try {
-      const file = await sharedFileHandle.getFile();
+      const fileHandle = await getSharedFileHandle(sharedDirHandle);
+      const file = await fileHandle.getFile();
       const text = (await file.text()).trim();
       const payload = text ? JSON.parse(text) : { items: [] };
       const incoming = Array.isArray(payload.items) ? payload.items : [];
       state.items = flagProbableDuplicates(mergeItemLists(state.items, incoming));
+      lastKnownSharedText = text || null;
       saveState(state);
       page = 1;
       renderNow();
       if (sourceLabel) showMessage(`Partage rechargé automatiquement (${incoming.length} structure(s)).`);
       return true;
     } catch {
-      if (sourceLabel) showMessage("Rechargement automatique du partage impossible — utilisez « Charger le partage ».", true);
+      // JSON corrompu ou illisible : on ne touche pas à l'état local, on prévient l'agent
+      // plutôt que d'écraser le partage avec un contenu qu'on n'a pas pu lire correctement.
+      if (sourceLabel) showMessage("Rechargement automatique du partage impossible (fichier illisible ou corrompu) — utilisez « Charger le partage ».", true);
       return false;
     }
   }
@@ -715,17 +765,15 @@ if (typeof document !== "undefined") {
   if (linkSharedButton) {
     linkSharedButton.addEventListener("click", async () => {
       try {
-        const [handle] = await window.showOpenFilePicker({
-          types: [{ description: "Fichier partagé JSON", accept: { "application/json": [".json"] } }]
-        });
-        sharedFileHandle = handle;
+        const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+        sharedDirHandle = handle;
         await idbSetHandle(handle);
         const loaded = await loadFromSharedHandle();
         showMessage(loaded
-          ? "Partage lié : rechargé à l'ouverture, réenregistré après chaque décision."
-          : "Partage lié (fichier vide ou illisible pour l'instant) : il sera réenregistré après chaque décision.");
+          ? "Dossier partagé lié : rechargé à l'ouverture, réenregistré (avec sauvegarde automatique) après chaque décision."
+          : "Dossier partagé lié (fichier vide ou illisible pour l'instant) : il sera réenregistré après chaque décision.");
       } catch {
-        // L'agent a annulé la sélection du fichier : rien à faire.
+        // L'agent a annulé la sélection du dossier : rien à faire.
       }
     });
   }
@@ -736,13 +784,13 @@ if (typeof document !== "undefined") {
         const storedHandle = await idbGetHandle();
         if (!storedHandle) return;
         if ((await storedHandle.queryPermission({ mode: "readwrite" })) === "granted") {
-          sharedFileHandle = storedHandle;
+          sharedDirHandle = storedHandle;
           await loadFromSharedHandle("ouverture");
         } else {
-          showMessage("Autorisation du fichier partagé expirée — recliquez sur « Lier le partage (auto) ».");
+          showMessage("Autorisation du dossier partagé expirée — recliquez sur « Lier le partage (auto) ».");
         }
       } catch {
-        // Pas de fichier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
+        // Pas de dossier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
       }
     })();
     if (typeof window !== "undefined") window.addEventListener("pagehide", () => { saveToSharedHandle(); });

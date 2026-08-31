@@ -108,11 +108,21 @@ Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base
 
 ### Automatisation du chargement/enregistrement (Chrome, Edge)
 
-Sur les navigateurs qui le permettent (Chrome, Edge — pas Firefox), le bouton **« Lier un fichier partagé (auto) »** apparaît à côté des deux boutons manuels. Il permet de choisir une fois le fichier `veille-sports-partage.json` du dossier réseau partagé ; ensuite :
-- il est **relu automatiquement à chaque ouverture** de l'application (fusion avec vos résultats locaux, comme un chargement manuel) ;
+Sur les navigateurs qui le permettent (Chrome, Edge — pas Firefox), le bouton **« Lier le partage (auto) »** apparaît à côté des deux boutons manuels. Il permet de choisir une fois le **dossier** réseau partagé (pas seulement le fichier) ; ensuite :
+- le fichier `veille-sports-partage.json` de ce dossier est **relu automatiquement à chaque ouverture** de l'application (fusion avec vos résultats locaux, comme un chargement manuel) ;
 - il est **réenregistré automatiquement** après chaque recherche, chaque import RNA, et chaque changement de décision — sans avoir à cliquer sur « Enregistrer sur le partage ».
 
-Le lien est mémorisé sur ce poste (navigateur) pour les prochaines ouvertures. Si l'autorisation d'accès au fichier expire (cas rare), un message invite à recliquer sur « Lier un fichier partagé » pour la renouveler ; en attendant, les boutons manuels continuent de fonctionner normalement. Sur Firefox, ce bouton n'apparaît pas du tout : seul le fonctionnement manuel (charger/enregistrer par clic) est disponible.
+Le lien est mémorisé sur ce poste (navigateur) pour les prochaines ouvertures. Si l'autorisation d'accès au dossier expire (cas rare), un message invite à recliquer sur « Lier le partage » pour la renouveler ; en attendant, les boutons manuels continuent de fonctionner normalement. Sur Firefox, ce bouton n'apparaît pas du tout : seul le fonctionnement manuel (charger/enregistrer par clic) est disponible.
+
+### Robustesse du partage en cas de plusieurs agents actifs en même temps
+
+Sans serveur ni base de données commune, le risque principal est que deux agents enregistrent presque en même temps et que l'un écrase le travail de l'autre. Trois protections ont été ajoutées, valables pour le mode automatique (Chrome/Edge) :
+
+1. **Fusion non destructive à l'écriture** : avant tout enregistrement automatique, l'application relit d'abord le contenu réel du fichier partagé au moment d'écrire, et fusionne avec les résultats locaux (même logique déjà utilisée pour le chargement) — elle ne le remplace jamais par un simple export de l'état local. Un agent avec des données locales périmées ne peut donc pas écraser les décisions plus récentes d'un collègue déjà enregistrées sur le partage.
+2. **Sauvegardes automatiques horodatées** : juste avant chaque enregistrement automatique, une copie du contenu du fichier partagé tel qu'il était sur le disque est déposée dans un sous-dossier `historique-partage/` du même dossier partagé (ex. `veille-sports-partage-2026-08-29-10h05m12s.json`). En cas de fusion malheureuse ou de mauvaise manipulation, une version antérieure reste toujours récupérable manuellement dans ce sous-dossier.
+3. **Détection des écritures concurrentes** : l'application retient le dernier contenu du fichier partagé qu'elle a lu ou écrit. Si, au moment d'enregistrer, le contenu réel du fichier a changé entre-temps (signe qu'un(e) collègue vient d'enregistrer), un message prévient explicitement l'agent qu'une fusion automatique a eu lieu, plutôt que de le faire silencieusement.
+
+Ces trois protections réduisent le risque de perte de données mais ne remplacent pas une vraie base commune : un conflit sur la **même structure**, modifiée par deux agents à quelques secondes d'intervalle, reste tranché par la règle « décision la plus récente l'emporte » (voir ci-dessus), pas par une fusion intelligente du contenu des deux décisions.
 
 **Limite à connaître, avec ou sans automatisation** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). Le réflexe à prendre en mode manuel : charger la liste partagée avant de commencer à qualifier des structures, et enregistrer en fin de session. En mode automatique (Chrome/Edge), ce réflexe n'est plus nécessaire pour l'enregistrement (il se fait après chaque décision), mais le risque d'écrasement entre deux agents qui travaillent au même instant subsiste toujours, faute de vrai serveur.
 
