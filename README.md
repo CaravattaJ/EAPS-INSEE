@@ -102,29 +102,21 @@ L'INSEE enregistre parfois une « date de création » qui correspond à une dat
 
 Chaque structure a de nouveau une décision (menu déroulant : À qualifier, À contrôler, Déjà connu, Pas un lieu de pratique, Hors périmètre). Au premier changement de décision sur un poste, l'application demande une fois le nom ou les initiales de l'agent (mémorisé ensuite sur ce poste) ; chaque décision garde ensuite trace de qui l'a prise et quand (affiché sous le menu, et exporté dans le CSV).
 
-Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune :
-- **« Charger la liste partagée »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats locaux : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
-- **« Enregistrer sur le partage »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
+Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune, le fonctionnement est **volontairement le même pour tout le monde, sur tous les navigateurs** (Chrome, Edge, Firefox...) :
+- **« Charger le partage »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats locaux : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
+- **« Enregistrer le partage »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
 
-### Automatisation du chargement/enregistrement (Chrome, Edge)
+Le réflexe à prendre : charger le partage avant de commencer à qualifier des structures, et l'enregistrer en fin de session (ou après un lot de décisions), pour rester synchronisé avec vos collègues.
 
-Sur les navigateurs qui le permettent (Chrome, Edge — pas Firefox), le bouton **« Lier le partage (auto) »** apparaît à côté des deux boutons manuels. Il permet de choisir une fois le **dossier** réseau partagé (pas seulement le fichier) ; ensuite :
-- le fichier `veille-sports-partage.json` de ce dossier est **relu automatiquement à chaque ouverture** de l'application (fusion avec vos résultats locaux, comme un chargement manuel) ;
-- il est **réenregistré automatiquement** après chaque recherche, chaque import RNA, et chaque changement de décision — sans avoir à cliquer sur « Enregistrer sur le partage ».
+> Une version précédente proposait, en plus, une liaison automatique du dossier partagé sur Chrome/Edge (rechargement/réenregistrement sans clic, sauvegardes horodatées, détection des écritures concurrentes). Elle a été retirée : le comportement différait selon le navigateur et créait un risque de confusion (deux systèmes de partage à comprendre selon le poste). Le fonctionnement manuel, identique partout, est plus simple à expliquer et à vérifier pour l'agent.
 
-Le lien est mémorisé sur ce poste (navigateur) pour les prochaines ouvertures. Si l'autorisation d'accès au dossier expire (cas rare), un message invite à recliquer sur « Lier le partage » pour la renouveler ; en attendant, les boutons manuels continuent de fonctionner normalement. Sur Firefox, ce bouton n'apparaît pas du tout : seul le fonctionnement manuel (charger/enregistrer par clic) est disponible.
+**Limite à connaître** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). D'où l'importance du réflexe charger/enregistrer ci-dessus.
 
-### Robustesse du partage en cas de plusieurs agents actifs en même temps
+### Réinitialisation des données locales
 
-Sans serveur ni base de données commune, le risque principal est que deux agents enregistrent presque en même temps et que l'un écrase le travail de l'autre. Trois protections ont été ajoutées, valables pour le mode automatique (Chrome/Edge) :
+Chaque navigateur (Chrome, Firefox...), sur chaque poste, garde ses propres résultats et décisions en mémoire locale (`localStorage`) — ce sont des espaces de stockage totalement indépendants les uns des autres, même sur le même ordinateur. L'application ne les vide jamais toute seule : au démarrage, elle affiche systématiquement ce qui a été accumulé lors des recherches précédentes sur ce navigateur.
 
-1. **Fusion non destructive à l'écriture** : avant tout enregistrement automatique, l'application relit d'abord le contenu réel du fichier partagé au moment d'écrire, et fusionne avec les résultats locaux (même logique déjà utilisée pour le chargement) — elle ne le remplace jamais par un simple export de l'état local. Un agent avec des données locales périmées ne peut donc pas écraser les décisions plus récentes d'un collègue déjà enregistrées sur le partage.
-2. **Sauvegardes automatiques horodatées** : juste avant chaque enregistrement automatique, une copie du contenu du fichier partagé tel qu'il était sur le disque est déposée dans un sous-dossier `historique-partage/` du même dossier partagé (ex. `veille-sports-partage-2026-08-29-10h05m12s.json`). En cas de fusion malheureuse ou de mauvaise manipulation, une version antérieure reste toujours récupérable manuellement dans ce sous-dossier.
-3. **Détection des écritures concurrentes** : l'application retient le dernier contenu du fichier partagé qu'elle a lu ou écrit. Si, au moment d'enregistrer, le contenu réel du fichier a changé entre-temps (signe qu'un(e) collègue vient d'enregistrer), un message prévient explicitement l'agent qu'une fusion automatique a eu lieu, plutôt que de le faire silencieusement.
-
-Ces trois protections réduisent le risque de perte de données mais ne remplacent pas une vraie base commune : un conflit sur la **même structure**, modifiée par deux agents à quelques secondes d'intervalle, reste tranché par la règle « décision la plus récente l'emporte » (voir ci-dessus), pas par une fusion intelligente du contenu des deux décisions.
-
-**Limite à connaître, avec ou sans automatisation** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). Le réflexe à prendre en mode manuel : charger la liste partagée avant de commencer à qualifier des structures, et enregistrer en fin de session. En mode automatique (Chrome/Edge), ce réflexe n'est plus nécessaire pour l'enregistrement (il se fait après chaque décision), mais le risque d'écrasement entre deux agents qui travaillent au même instant subsiste toujours, faute de vrai serveur.
+Le bouton **« Réinitialiser les données locales »** (dans le bloc Aide) vide ce stockage local — après confirmation, en rappelant de sauvegarder sur le partage avant si besoin. Il ne touche jamais au fichier partagé réseau : après une réinitialisation, cliquer sur « Charger le partage » permet de retrouver les données communes de l'équipe.
 
 ### Alertes de fraîcheur
 

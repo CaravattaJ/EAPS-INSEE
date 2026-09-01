@@ -18,7 +18,6 @@ function activityLabel(code) {
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const AGENT_NAME_KEY = "veille-sports-agent-name";
 const SHARED_FILE_NAME = "veille-sports-partage.json";
-const SHARED_BACKUPS_DIR = "historique-partage";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
 const MAX_RETRIES = 4;
@@ -309,40 +308,6 @@ function loadState() {
 
 function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-// Stocke la référence (FileSystemFileHandle) vers le fichier partagé lié par l'agent, pour
-// pouvoir le recharger/réenregistrer automatiquement d'une ouverture à l'autre. localStorage
-// ne peut pas stocker cet objet : IndexedDB est le seul stockage local qui le permette.
-const HANDLE_DB_NAME = "veille-sports-handles";
-const HANDLE_STORE_NAME = "handles";
-const HANDLE_KEY = "sharedFileHandle";
-
-function openHandleDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(HANDLE_DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(HANDLE_STORE_NAME);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function idbGetHandle() {
-  const db = await openHandleDb();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(HANDLE_STORE_NAME, "readonly").objectStore(HANDLE_STORE_NAME).get(HANDLE_KEY);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function idbSetHandle(handle) {
-  const db = await openHandleDb();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(HANDLE_STORE_NAME, "readwrite").objectStore(HANDLE_STORE_NAME).put(handle, HANDLE_KEY);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
 }
 
 // Demande le nom/les initiales de l'agent une seule fois par poste, pour identifier qui a
@@ -671,131 +636,6 @@ if (typeof document !== "undefined") {
     updateMap(mapItems);
   };
 
-  // Chargement/enregistrement automatiques du partage, disponibles uniquement sur les
-  // navigateurs qui savent lire/écrire un dossier local choisi une fois (Chrome, Edge...).
-  // Un dossier (et non un simple fichier) est nécessaire pour pouvoir y déposer des
-  // sauvegardes horodatées à côté du fichier partagé. Sur les autres navigateurs
-  // (Firefox notamment), les boutons manuels "Charger"/"Enregistrer sur le partage"
-  // restent le seul moyen, exactement comme avant.
-  const supportsFileHandles = typeof window !== "undefined" && typeof window.showDirectoryPicker === "function" && typeof indexedDB !== "undefined";
-  let sharedDirHandle = null;
-  // Dernier contenu du fichier partagé effectivement lu ou écrit par cette session : sert
-  // à détecter qu'un(e) collègue a enregistré entre-temps, pour prévenir plutôt que fusionner
-  // en silence.
-  let lastKnownSharedText = null;
-  const linkSharedButton = document.querySelector("#link-shared-button");
-  if (linkSharedButton) linkSharedButton.hidden = !supportsFileHandles;
-
-  async function getSharedFileHandle(dirHandle) {
-    return dirHandle.getFileHandle(SHARED_FILE_NAME, { create: true });
-  }
-
-  // Dépose une copie horodatée du contenu passé dans un sous-dossier "historique-partage",
-  // avant tout enregistrement qui le remplacerait. Filet de sécurité : une fusion malheureuse
-  // ou un enregistrement par erreur reste récupérable, sans intervention de l'agent.
-  async function backupSharedFile(dirHandle, text) {
-    if (!text) return;
-    try {
-      const backupsDir = await dirHandle.getDirectoryHandle(SHARED_BACKUPS_DIR, { create: true });
-      const backupHandle = await backupsDir.getFileHandle(`veille-sports-partage-${timestampForFilename()}.json`, { create: true });
-      const writable = await backupHandle.createWritable();
-      await writable.write(text);
-      await writable.close();
-    } catch {
-      // Sauvegarde best-effort : son échec ne doit jamais empêcher l'enregistrement principal.
-    }
-  }
-
-  async function saveToSharedHandle() {
-    if (!sharedDirHandle || !state.items.length) return;
-    try {
-      const fileHandle = await getSharedFileHandle(sharedDirHandle);
-      const file = await fileHandle.getFile();
-      const currentText = (await file.text()).trim();
-      const currentPayload = currentText ? JSON.parse(currentText) : { items: [] };
-      const currentItems = Array.isArray(currentPayload.items) ? currentPayload.items : [];
-      // Fusion non destructive : on ne remplace jamais aveuglément le fichier partagé par
-      // notre état local, on fusionne avec ce qu'il contient réellement au moment d'écrire —
-      // un(e) collègue a pu enregistrer entre notre dernière lecture et maintenant.
-      const merged = flagProbableDuplicates(mergeItemLists(currentItems, state.items));
-      if (currentText && lastKnownSharedText !== null && currentText !== lastKnownSharedText) {
-        showMessage("Le partage avait été modifié par quelqu'un d'autre entre-temps : les deux versions ont été fusionnées, rien n'a été perdu.");
-      }
-      await backupSharedFile(sharedDirHandle, currentText);
-      const newText = JSON.stringify({ exportedAt: new Date().toISOString(), items: merged }, null, 2);
-      const writable = await fileHandle.createWritable();
-      await writable.write(newText);
-      await writable.close();
-      lastKnownSharedText = newText;
-      state.items = merged;
-      saveState(state);
-      renderNow();
-    } catch {
-      // Écriture automatique en échec (droit révoqué, fichier déplacé, JSON corrompu sur le
-      // partage...) : l'agent garde la main via "Enregistrer sur le partage", rien n'est perdu
-      // localement — on ne remplace jamais le partage par un contenu qu'on n'a pas pu valider.
-    }
-  }
-
-  // Renvoie true si la lecture a réussi. Un fichier vide (première liaison, fichier tout
-  // juste créé par l'agent) compte comme réussi, avec zéro structure à fusionner.
-  async function loadFromSharedHandle(sourceLabel) {
-    if (!sharedDirHandle) return false;
-    try {
-      const fileHandle = await getSharedFileHandle(sharedDirHandle);
-      const file = await fileHandle.getFile();
-      const text = (await file.text()).trim();
-      const payload = text ? JSON.parse(text) : { items: [] };
-      const incoming = Array.isArray(payload.items) ? payload.items : [];
-      state.items = flagProbableDuplicates(mergeItemLists(state.items, incoming));
-      lastKnownSharedText = text || null;
-      saveState(state);
-      page = 1;
-      renderNow();
-      if (sourceLabel) showMessage(`Partage rechargé automatiquement (${incoming.length} structure(s)).`);
-      return true;
-    } catch {
-      // JSON corrompu ou illisible : on ne touche pas à l'état local, on prévient l'agent
-      // plutôt que d'écraser le partage avec un contenu qu'on n'a pas pu lire correctement.
-      if (sourceLabel) showMessage("Rechargement automatique du partage impossible (fichier illisible ou corrompu) — utilisez « Charger le partage ».", true);
-      return false;
-    }
-  }
-
-  if (linkSharedButton) {
-    linkSharedButton.addEventListener("click", async () => {
-      try {
-        const handle = await window.showDirectoryPicker({ mode: "readwrite" });
-        sharedDirHandle = handle;
-        await idbSetHandle(handle);
-        const loaded = await loadFromSharedHandle();
-        showMessage(loaded
-          ? "Dossier partagé lié : rechargé à l'ouverture, réenregistré (avec sauvegarde automatique) après chaque décision."
-          : "Dossier partagé lié (fichier vide ou illisible pour l'instant) : il sera réenregistré après chaque décision.");
-      } catch {
-        // L'agent a annulé la sélection du dossier : rien à faire.
-      }
-    });
-  }
-
-  if (supportsFileHandles) {
-    (async () => {
-      try {
-        const storedHandle = await idbGetHandle();
-        if (!storedHandle) return;
-        if ((await storedHandle.queryPermission({ mode: "readwrite" })) === "granted") {
-          sharedDirHandle = storedHandle;
-          await loadFromSharedHandle("ouverture");
-        } else {
-          showMessage("Autorisation du dossier partagé expirée — recliquez sur « Lier le partage (auto) ».");
-        }
-      } catch {
-        // Pas de dossier lié précédemment, ou lecture IndexedDB indisponible : comportement manuel inchangé.
-      }
-    })();
-    if (typeof window !== "undefined") window.addEventListener("pagehide", () => { saveToSharedHandle(); });
-  }
-
   const updateDepartmentSummary = () => {
     departmentSummary.textContent = departmentsLabel(readSelectedDepartments(departmentCheckboxes));
   };
@@ -910,7 +750,6 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      await saveToSharedHandle();
       let summary = `${state.items.length} structure(s) trouvée(s) depuis le ${formatDate(sinceInput.value)} en ${departmentsLabel(departments)} (dont ${joafeItems.length} au Journal officiel).`;
       if (incompleteCount > 0) summary += " Attention, liste peut-être incomplète (beaucoup de résultats sur au moins une source).";
       showMessage(summary);
@@ -942,7 +781,6 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
-      await saveToSharedHandle();
       showMessage(`${imported.length} association(s) candidate(s) trouvée(s) dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
@@ -961,7 +799,6 @@ if (typeof document !== "undefined") {
     item.decidedAt = new Date().toISOString();
     saveState(state);
     renderNow();
-    await saveToSharedHandle();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
@@ -994,4 +831,21 @@ if (typeof document !== "undefined") {
     URL.revokeObjectURL(link.href);
     showMessage(`« ${SHARED_FILE_NAME} » téléchargé — déposez-le sur le dossier partagé (en écrasant l'ancien).`);
   });
+
+  const resetButton = document.querySelector("#reset-button");
+  if (resetButton) {
+    resetButton.addEventListener("click", () => {
+      if (!state.items.length) { showMessage("Aucune donnée locale à réinitialiser.", true); return; }
+      const confirmed = confirm(`Réinitialiser les ${state.items.length} structure(s) et décision(s) enregistrées sur ce poste ? Pensez à enregistrer sur le partage avant si besoin — cette action ne touche que ce navigateur, pas le fichier partagé.`);
+      if (!confirmed) return;
+      state.items = [];
+      state.lastSync = null;
+      state.lastSearchSince = null;
+      state.lastRnaImport = null;
+      saveState(state);
+      page = 1;
+      renderNow();
+      showMessage("Données locales réinitialisées. Rechargez le fichier partagé si besoin pour les récupérer.");
+    });
+  }
 }
