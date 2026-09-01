@@ -138,14 +138,12 @@
       <summary><p class="eyebrow">Équipe</p> Partager avec des collègues</summary>
       <div class="secondary-block-body">
         <div class="actions">
-          <button id="link-shared-button" class="secondary-button" type="button" hidden>Lier le partage (auto)</button>
           <button id="load-shared-button" class="secondary-button" type="button">Charger le partage</button>
           <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
           <button id="save-shared-button" class="secondary-button" type="button">Enregistrer le partage</button>
         </div>
-        <p class="help">Utilisez un fichier <code>veille-sports-partage.json</code> commun (ex. sur un dossier réseau) pour fusionner vos résultats et décisions avec ceux de vos collègues, sans rien perdre.</p>
-        <p class="help">Sur Chrome/Edge, « Lier le partage (auto) » évite de recliquer à chaque fois : on choisit le <strong>dossier</strong> réseau (pas juste le fichier), et le partage se recharge à l'ouverture et se réenregistre après chaque décision. Sur Firefox, seuls les boutons manuels fonctionnent.</p>
-        <p class="help">Chaque enregistrement automatique relit d'abord le fichier partagé pour fusionner avec ce qu'il contient déjà (jamais un remplacement pur et simple), dépose une copie de sécurité horodatée dans <code>historique-partage/</code>, et vous prévient si quelqu'un d'autre avait enregistré entre-temps.</p>
+        <p class="help">Utilisez un fichier <code>veille-sports-partage.json</code> commun (ex. sur un dossier réseau) pour fusionner vos résultats et décisions avec ceux de vos collègues, sans rien perdre : « Charger le partage » lit ce fichier et le fusionne avec vos résultats locaux, « Enregistrer le partage » télécharge un fichier à jour à déposer dans le dossier commun. Fonctionne de la même façon sur tous les navigateurs.</p>
+        <p class="help">Pensez à recharger le partage avant de commencer à travailler, et à l'enregistrer après vos décisions, pour rester synchronisé avec vos collègues.</p>
       </div>
     </details>
 
@@ -167,6 +165,8 @@
           <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
         </ul>
+        <p class="help">Les données affichées (résultats, décisions) sont enregistrées uniquement sur ce poste et ce navigateur — Chrome et Firefox, par exemple, ont chacun leurs propres données, même sur le même ordinateur.</p>
+        <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
       </div>
     </details>
   </main>
