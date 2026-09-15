@@ -535,7 +535,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
             <li>Laissez la date proposée par défaut avant de cliquer sur <strong>« Rechercher »</strong> — elle recule volontairement de quelques jours par rapport à votre dernière recherche, pour ne pas manquer une structure publiée en retard par l'administration.</li>
             <li>Qualifiez les nouvelles structures détectées (colonne Décision).</li>
             <li>En fin de session, ou après un lot de décisions, cliquez sur <strong>« Enregistrer les données »</strong> pour partager votre travail avec l'équipe.</li>
-            <li>Une fois par mois environ, relancez une recherche sur une période plus large (60 à 90 jours, en reculant la date à la main) pour rattraper d'éventuelles structures encore non détectées.</li>
+            <li>Une fois par mois environ, relancez une recherche sur une période plus large (60 à 90 jours, en reculant la date à la main) et importez un export RNA à jour (bouton <strong>« Importer RNA »</strong>) pour rattraper d'éventuelles structures encore non détectées.</li>
           </ol>
         </div>
         <div class="confidence-note" aria-labelledby="confidence-title">
@@ -559,10 +559,12 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
           </ul>
         </div>
         <ul class="help">
+          <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour vérifier rapidement de quoi il s'agit avant de qualifier.</li>
           <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant « sport ».</li>
           <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
           <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
+          <li>Le bouton clair/sombre en haut à droite change uniquement l'affichage, sans effet sur vos données.</li>
         </ul>
         <p class="help">Utilisez <strong>« Charger les données »</strong> et <strong>« Enregistrer les données »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> — par exemple sur un dossier réseau commun. C'est le moyen officiel de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après vos décisions. Le navigateur garde aussi une copie de secours sur ce poste, mais elle n'est pas partagée avec vos collègues et peut être vidée à tout moment : ne comptez que sur le fichier enregistré.</p>
         <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
