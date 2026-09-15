@@ -509,6 +509,12 @@ function sortItems(items, column, direction = "asc") {
   });
 }
 
+// Nom + commune plutôt que le nom seul : beaucoup de structures ont un nom générique
+// (« Les Amis du Sport »...) que Google ne peut pas désambiguïser sans la localité.
+function googleSearchUrl(item) {
+  return `https://www.google.com/search?q=${encodeURIComponent(`${item.name} ${item.commune}`.trim())}`;
+}
+
 function render(state, query = "", options = {}) {
   const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
@@ -540,7 +546,7 @@ function render(state, query = "", options = {}) {
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
