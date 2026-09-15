@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Repérage local des nouveaux établissements sportifs de Côte-d'Or.">
   <title>Veille Sports 21</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <!-- INLINE_CSS -->
 </head>
@@ -15,16 +18,23 @@
       <p class="eyebrow">Service de contrôle</p>
       <h1>Veille Sports 21</h1>
     </div>
-    <span class="local-badge">Données locales</span>
+    <div class="topbar-actions">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Basculer entre thème clair et thème sombre">
+        <span class="icon" aria-hidden="true">🌙</span><span id="theme-toggle-label">Sombre</span>
+      </button>
+      <span class="local-badge">Données locales</span>
+    </div>
   </header>
 
   <main>
     <div class="primary-column">
     <section class="hero card">
-      <div>
+      <div class="hero-photo">
         <p class="eyebrow">Côte-d'Or</p>
         <h2>Repérer les nouvelles structures sportives</h2>
         <p class="hero-copy">Trouvez les établissements et associations sportives récemment créés.</p>
+      </div>
+      <div class="hero-controls">
         <div class="hero-fields">
           <label class="since-field">
             <span>Chercher les structures créées depuis le</span>
@@ -47,14 +57,14 @@
             </details>
           </div>
         </div>
-      </div>
-      <div class="hero-actions">
-        <button id="load-shared-button" class="secondary-button" type="button">Charger les données</button>
-        <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
-        <button id="save-shared-button" class="secondary-button" type="button">Enregistrer les données</button>
-        <button id="search-button" class="primary-button" type="button">
-          <span aria-hidden="true">↻</span> Rechercher
-        </button>
+        <div class="hero-actions">
+          <button id="load-shared-button" class="secondary-button" type="button">Charger les données</button>
+          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer les données</button>
+          <button id="search-button" class="primary-button" type="button">
+            <span aria-hidden="true">↻</span> Rechercher
+          </button>
+        </div>
       </div>
     </section>
 

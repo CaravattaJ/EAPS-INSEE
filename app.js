@@ -17,6 +17,7 @@ function activityLabel(code) {
 }
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const AGENT_NAME_KEY = "veille-sports-agent-name";
+const THEME_KEY = "veille-sports-21-theme";
 const SHARED_FILE_NAME = "veille-sports-partage.json";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
@@ -584,9 +585,37 @@ function readSelectedDepartments(checkboxes) {
   return values.length ? values : DEFAULT_DEPARTMENTS;
 }
 
-const PRIORITY_MAP_COLORS = { "Élevée": "#b42318", "Moyenne": "#9a6700", "Faible": "#667085" };
+const PRIORITY_MAP_COLORS = { "Élevée": "#ff5a1f", "Moyenne": "#c98a00", "Faible": "#8a93a3" };
+
+// Préférence d'affichage uniquement (pas une donnée de veille) : mémorisée sur ce poste
+// indépendamment du fichier partagé, comme le ferait n'importe quel réglage d'interface.
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const label = document.querySelector("#theme-toggle-label");
+  const icon = document.querySelector("#theme-toggle .icon");
+  if (label) label.textContent = theme === "dark" ? "Clair" : "Sombre";
+  if (icon) icon.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function initialTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "dark" || stored === "light") return stored;
+  } catch { /* stockage indisponible : on retombe sur la préférence système */ }
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 if (typeof document !== "undefined") {
+  applyTheme(initialTheme());
+  const themeToggle = document.querySelector("#theme-toggle");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      applyTheme(next);
+      try { localStorage.setItem(THEME_KEY, next); } catch { /* préférence perdue au prochain chargement, sans conséquence */ }
+    });
+  }
+
   const state = loadState();
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");

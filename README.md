@@ -6,7 +6,7 @@ Prototype sans installation et sans dépendance npm pour repérer les établisse
 
 Sous Windows, double-cliquer sur `ouvrir-veille-sports.bat`. Il est également possible d'ouvrir directement `index.html` dans un navigateur récent. Aucun droit administrateur et aucune installation ne sont nécessaires : l'application fonctionne sur un poste Windows standard sans droits administrateur (c'est un simple fichier HTML ouvert dans le navigateur).
 
-> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), ainsi que `unpkg.com` (bibliothèque de carte) et `data.geopf.fr` (fond de carte IGN, voir ci-dessous).
+> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), `unpkg.com` (bibliothèque de carte), `data.geopf.fr` (fond de carte IGN, voir ci-dessous), ainsi que `fonts.googleapis.com` et `fonts.gstatic.com` (typographies de l'interface).
 
 `index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css` ou `app.js` sont absents du dossier téléchargé.
 
@@ -149,7 +149,11 @@ Les boutons **« Charger les données »** et **« Enregistrer les données »**
 
 Les textes visibles (boutons, libellés, messages) ont été raccourcis pour rester directs (« Importer RNA », « Exporter en CSV »...) ; les explications plus longues qui existaient auparavant en permanence à l'écran ont été déplacées dans le bloc Aide, accessible à la demande sans encombrer l'écran principal.
 
-La palette de couleurs a aussi été revue (bleu pour l'action principale, teal pour distinguer les blocs secondaires, rouge/ambre réservés aux niveaux de confiance et aux alertes) pour mieux hiérarchiser visuellement l'écran.
+### Identité graphique et thème clair/sombre
+
+L'interface reprend une identité sportive assumée : accent orange (« départ ») et bleu électrique sur fond neutre, typographies Anton (titres), Manrope (texte courant) et JetBrains Mono (données chiffrées — SIRET, dates, compteurs) chargées depuis Google Fonts. Le bandeau d'accueil utilise une photographie de coureur sous licence gratuite Pexels (© Nick Gosset), intégrée directement dans le fichier de l'application.
+
+Le bouton **« Sombre » / « Clair »** dans l'en-tête bascule entre les deux thèmes. Par défaut, l'application suit la préférence du système d'exploitation (clair ou sombre) au premier chargement ; le choix explicite fait ensuite via ce bouton est mémorisé sur ce poste (`localStorage`), comme n'importe quel réglage d'affichage — ce n'est pas une donnée de veille, et cette préférence n'a donc pas besoin d'être enregistrée dans le fichier partagé.
 
 ## Tests
 
