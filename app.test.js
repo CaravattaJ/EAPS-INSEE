@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import "./sport-keywords.js";
 import "./app.js";
 
 const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;

@@ -394,8 +394,13 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
 .link-button { border: 0; background: none; padding: 0; color: var(--electric); font-weight: 700; font-size: inherit; text-decoration: underline; }
 .link-button:hover { color: var(--volt); }
 .help:last-child { margin-bottom: 0; }
-.help ul { margin: 4px 0; padding-left: 20px; }
+.help ul, .help ol { margin: 4px 0; padding-left: 20px; }
 .help li { margin-bottom: 4px; }
+.methodology { margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); }
+.methodology-title { color: var(--ink); margin-bottom: 6px; }
+.methodology ol { color: var(--ink); }
+.methodology ol li { margin-bottom: 7px; }
+.methodology ol li:last-child { margin-bottom: 0; }
 
 footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px max(24px, calc((100% - 1180px) / 2)); border-top: 1px solid var(--border); color: var(--muted); font-size: .8rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
@@ -512,6 +517,16 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
     <details class="card secondary-block">
       <summary><p class="eyebrow">Aide</p> Confiance &amp; fonctionnement</summary>
       <div class="secondary-block-body">
+        <div class="methodology">
+          <p class="help methodology-title"><strong>Méthodologie conseillée</strong></p>
+          <ol class="help">
+            <li>En début de session, cliquez sur <strong>« Charger les données »</strong> pour repartir des dernières décisions de l'équipe.</li>
+            <li>Laissez la date proposée par défaut avant de cliquer sur <strong>« Rechercher »</strong> — elle recule volontairement de quelques jours par rapport à votre dernière recherche, pour ne pas manquer une structure publiée en retard par l'administration.</li>
+            <li>Qualifiez les nouvelles structures détectées (colonne Décision).</li>
+            <li>En fin de session, ou après un lot de décisions, cliquez sur <strong>« Enregistrer les données »</strong> pour partager votre travail avec l'équipe.</li>
+            <li>Une fois par mois environ, relancez une recherche sur une période plus large (60 à 90 jours, en reculant la date à la main) pour rattraper d'éventuelles structures encore non détectées.</li>
+          </ol>
+        </div>
         <div class="confidence-note" aria-labelledby="confidence-title">
           <p id="confidence-title">Niveau de confiance : un indice automatique, pas une décision de contrôle&nbsp;:</p>
           <ul>
@@ -533,7 +548,6 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
           </ul>
         </div>
         <ul class="help">
-          <li>La recherche couvre 30 jours à la première utilisation, puis revérifie les 15 jours précédents à chaque fois pour ne rien manquer.</li>
           <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant « sport ».</li>
           <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
           <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
@@ -621,6 +635,55 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+// Mots-clés utilisés pour repérer un lien avec le sport dans le nom ou l'objet d'une
+// association, quand aucun code officiel (WALDEC pour le RNA, famille 11000/ pour le Journal
+// officiel) ne le confirme déjà — voir findSportKeywords() dans app.js. Un mot-clé trouvé ici
+// donne une confiance "Moyenne", jamais "Élevée" : c'est une déduction depuis du texte libre,
+// pas une déclaration officielle catégorisée.
+//
+// Construite à partir de la liste officielle des fédérations sportives agréées par le
+// ministère des Sports (sports.gouv.fr) : une entrée par discipline reconnue, sous sa forme
+// française la plus courante. Un seul orthographe par mot-clé suffit (accentuée ou non) :
+// normalizeText retire les accents des deux côtés de la comparaison, donc "karaté" et
+// "karate" sont déjà équivalents — inutile de lister les deux formes.
+//
+// Pour ajouter ou retirer une discipline : modifier la liste ci-dessous, relancer
+// `npm test` (le test "finds sports keywords..." vérifie le comportement), puis
+// `npm run build` pour régénérer index.html.
+//
+// Chargé comme un script classique (pas de import/export) afin de fonctionner directement
+// avec une adresse file:///... comme le reste de l'application — voir README.md.
+const SPORT_KEYWORDS = [
+  "sport",
+  // Sports collectifs et de raquette
+  "football", "futsal", "rugby", "handball", "basket", "volley", "hockey", "water-polo",
+  "baseball", "softball", "cricket", "bowling", "quilles", "ball-trap", "kin-ball", "frisbee",
+  "tennis", "badminton", "squash", "ping-pong",
+  // Sports de combat
+  "judo", "karaté", "aïkido", "boxe", "kickboxing", "muay thaï", "taekwondo", "jujitsu", "kendo", "full-contact",
+  // Gymnastique, force, danse
+  "gymnastique", "fitness", "musculation", "haltérophilie", "trampoline", "danse",
+  // Sports nautiques
+  "natation", "plongée", "canoë", "kayak", "aviron", "voile", "surf", "wakeboard",
+  // Cyclisme
+  "cyclisme", "vtt", "bmx",
+  // Équitation
+  "équitation",
+  // Plein air et montagne
+  "randonnée", "escalade", "spéléologie", "parapente", "planeur", "parachutisme",
+  "pelote basque", "pêche", "course d'orientation", "golf",
+  // Athlétisme et sports d'endurance
+  "athlétisme", "triathlon", "pentathlon",
+  // Sports d'hiver
+  "ski", "snowboard", "patinage",
+  // Sports de précision
+  "pétanque", "tir à l'arc", "tir sportif",
+  // Autres disciplines reconnues
+  "échecs", "handisport", "karting", "roller", "skateboard"
+];
+
+globalThis.SPORT_KEYWORDS = SPORT_KEYWORDS;
+
 const API_BASE = "https://recherche-entreprises.api.gouv.fr/search";
 const SPORTS_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z", "93.29Z"];
 const HIGH_PRIORITY_CODES = ["93.11Z", "93.12Z", "93.13Z", "93.19Z"];
@@ -681,39 +744,10 @@ const DEPARTMENTS = [
   { code: "90", label: "Territoire de Belfort" }
 ];
 const DEFAULT_DEPARTMENTS = ["21"];
-// Établie à partir de la liste officielle des fédérations sportives agréées par le ministère
-// des Sports (sports.gouv.fr) : une entrée par discipline reconnue, sous sa forme française
-// la plus courante. Un seul orthographe par mot-clé suffit (accentuée ou non) : normalizeText
-// retire les accents des deux côtés de la comparaison, donc "karaté" et "karate" sont déjà
-// équivalents — inutile de lister les deux formes.
-const SPORT_KEYWORDS = [
-  "sport",
-  // Sports collectifs et de raquette
-  "football", "futsal", "rugby", "handball", "basket", "volley", "hockey", "water-polo",
-  "baseball", "softball", "cricket", "bowling", "quilles", "ball-trap", "kin-ball", "frisbee",
-  "tennis", "badminton", "squash", "ping-pong",
-  // Sports de combat
-  "judo", "karaté", "aïkido", "boxe", "kickboxing", "muay thaï", "taekwondo", "jujitsu", "kendo", "full-contact",
-  // Gymnastique, force, danse
-  "gymnastique", "fitness", "musculation", "haltérophilie", "trampoline", "danse",
-  // Sports nautiques
-  "natation", "plongée", "canoë", "kayak", "aviron", "voile", "surf", "wakeboard",
-  // Cyclisme
-  "cyclisme", "vtt", "bmx",
-  // Équitation
-  "équitation",
-  // Plein air et montagne
-  "randonnée", "escalade", "spéléologie", "parapente", "planeur", "parachutisme",
-  "pelote basque", "pêche", "course d'orientation", "golf",
-  // Athlétisme et sports d'endurance
-  "athlétisme", "triathlon", "pentathlon",
-  // Sports d'hiver
-  "ski", "snowboard", "patinage",
-  // Sports de précision
-  "pétanque", "tir à l'arc", "tir sportif",
-  // Autres disciplines reconnues
-  "échecs", "handisport", "karting", "roller", "skateboard"
-];
+// La liste des mots-clés (SPORT_KEYWORDS) vit dans son propre fichier, sport-keywords.js,
+// pour rester facile à consulter et à modifier sans naviguer dans le reste du code — voir ce
+// fichier pour son contenu et la marche à suivre pour la faire évoluer. index.template.html
+// (et build.mjs) l'intègrent avant app.js, exactement comme app.js l'est déjà.
 
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));

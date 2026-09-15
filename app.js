@@ -58,39 +58,10 @@ const DEPARTMENTS = [
   { code: "90", label: "Territoire de Belfort" }
 ];
 const DEFAULT_DEPARTMENTS = ["21"];
-// Établie à partir de la liste officielle des fédérations sportives agréées par le ministère
-// des Sports (sports.gouv.fr) : une entrée par discipline reconnue, sous sa forme française
-// la plus courante. Un seul orthographe par mot-clé suffit (accentuée ou non) : normalizeText
-// retire les accents des deux côtés de la comparaison, donc "karaté" et "karate" sont déjà
-// équivalents — inutile de lister les deux formes.
-const SPORT_KEYWORDS = [
-  "sport",
-  // Sports collectifs et de raquette
-  "football", "futsal", "rugby", "handball", "basket", "volley", "hockey", "water-polo",
-  "baseball", "softball", "cricket", "bowling", "quilles", "ball-trap", "kin-ball", "frisbee",
-  "tennis", "badminton", "squash", "ping-pong",
-  // Sports de combat
-  "judo", "karaté", "aïkido", "boxe", "kickboxing", "muay thaï", "taekwondo", "jujitsu", "kendo", "full-contact",
-  // Gymnastique, force, danse
-  "gymnastique", "fitness", "musculation", "haltérophilie", "trampoline", "danse",
-  // Sports nautiques
-  "natation", "plongée", "canoë", "kayak", "aviron", "voile", "surf", "wakeboard",
-  // Cyclisme
-  "cyclisme", "vtt", "bmx",
-  // Équitation
-  "équitation",
-  // Plein air et montagne
-  "randonnée", "escalade", "spéléologie", "parapente", "planeur", "parachutisme",
-  "pelote basque", "pêche", "course d'orientation", "golf",
-  // Athlétisme et sports d'endurance
-  "athlétisme", "triathlon", "pentathlon",
-  // Sports d'hiver
-  "ski", "snowboard", "patinage",
-  // Sports de précision
-  "pétanque", "tir à l'arc", "tir sportif",
-  // Autres disciplines reconnues
-  "échecs", "handisport", "karting", "roller", "skateboard"
-];
+// La liste des mots-clés (SPORT_KEYWORDS) vit dans son propre fichier, sport-keywords.js,
+// pour rester facile à consulter et à modifier sans naviguer dans le reste du code — voir ce
+// fichier pour son contenu et la marche à suivre pour la faire évoluer. index.template.html
+// (et build.mjs) l'intègrent avant app.js, exactement comme app.js l'est déjà.
 
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));

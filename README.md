@@ -8,7 +8,7 @@ Sous Windows, double-cliquer sur `ouvrir-veille-sports.bat`. Il est également p
 
 > **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), `unpkg.com` (bibliothèque de carte), `data.geopf.fr` (fond de carte IGN, voir ci-dessous), ainsi que `fonts.googleapis.com` et `fonts.gstatic.com` (typographies de l'interface).
 
-`index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css` ou `app.js` sont absents du dossier téléchargé.
+`index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css`, `app.js` ou `sport-keywords.js` sont absents du dossier téléchargé.
 
 Le JavaScript est chargé comme un script classique afin de fonctionner directement avec une adresse `file:///...`. Il ne faut pas ajouter `type="module"` au script : Chrome bloque les modules locaux avec une erreur CORS lorsque la page n'est pas servie en HTTP.
 
@@ -161,4 +161,8 @@ Le bouton **« Sombre » / « Clair »** dans l'en-tête bascule entre les deux 
 npm test
 ```
 
-La commande utilise uniquement le moteur de test inclus dans Node.js : `npm install` n'est pas nécessaire. Après une modification de `index.template.html`, `styles.css` ou `app.js`, lancer `npm run build` pour régénérer le fichier autonome `index.html`.
+La commande utilise uniquement le moteur de test inclus dans Node.js : `npm install` n'est pas nécessaire. Après une modification de `index.template.html`, `styles.css`, `app.js` ou `sport-keywords.js`, lancer `npm run build` pour régénérer le fichier autonome `index.html`.
+
+### Liste des mots-clés sportifs (`sport-keywords.js`)
+
+La liste des mots-clés utilisée pour repérer un lien avec le sport dans le nom ou l'objet d'une association (import RNA, Journal officiel — voir « Recherche complémentaire par mot-clé ») vit dans son propre fichier, `sport-keywords.js`, séparé de `app.js` pour rester facile à consulter et à modifier. Elle est construite à partir de la liste officielle des fédérations sportives agréées par le ministère des Sports (sports.gouv.fr). Pour l'ajuster : modifier la liste dans ce fichier, lancer `npm test` (le test « finds sports keywords... » vérifie le comportement), puis `npm run build`.

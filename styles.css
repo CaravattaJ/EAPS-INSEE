@@ -382,8 +382,13 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
 .link-button { border: 0; background: none; padding: 0; color: var(--electric); font-weight: 700; font-size: inherit; text-decoration: underline; }
 .link-button:hover { color: var(--volt); }
 .help:last-child { margin-bottom: 0; }
-.help ul { margin: 4px 0; padding-left: 20px; }
+.help ul, .help ol { margin: 4px 0; padding-left: 20px; }
 .help li { margin-bottom: 4px; }
+.methodology { margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); }
+.methodology-title { color: var(--ink); margin-bottom: 6px; }
+.methodology ol { color: var(--ink); }
+.methodology ol li { margin-bottom: 7px; }
+.methodology ol li:last-child { margin-bottom: 0; }
 
 footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px max(24px, calc((100% - 1180px) / 2)); border-top: 1px solid var(--border); color: var(--muted); font-size: .8rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
