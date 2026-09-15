@@ -681,11 +681,38 @@ const DEPARTMENTS = [
   { code: "90", label: "Territoire de Belfort" }
 ];
 const DEFAULT_DEPARTMENTS = ["21"];
+// Établie à partir de la liste officielle des fédérations sportives agréées par le ministère
+// des Sports (sports.gouv.fr) : une entrée par discipline reconnue, sous sa forme française
+// la plus courante. Un seul orthographe par mot-clé suffit (accentuée ou non) : normalizeText
+// retire les accents des deux côtés de la comparaison, donc "karaté" et "karate" sont déjà
+// équivalents — inutile de lister les deux formes.
 const SPORT_KEYWORDS = [
-  "sport", "football", "futsal", "rugby", "handball", "basket", "volley", "judo", "karate", "karaté",
-  "aikido", "aïkido", "boxe", "gymnastique", "fitness", "musculation", "natation", "plongee", "plongée",
-  "canoe", "canoë", "kayak", "aviron", "cyclisme", "vtt", "equitation", "équitation", "randonnee", "randonnée",
-  "escalade", "athletisme", "athlétisme", "triathlon", "tennis", "badminton", "petanque", "pétanque", "escrime"
+  "sport",
+  // Sports collectifs et de raquette
+  "football", "futsal", "rugby", "handball", "basket", "volley", "hockey", "water-polo",
+  "baseball", "softball", "cricket", "bowling", "quilles", "ball-trap", "kin-ball", "frisbee",
+  "tennis", "badminton", "squash", "ping-pong",
+  // Sports de combat
+  "judo", "karaté", "aïkido", "boxe", "kickboxing", "muay thaï", "taekwondo", "jujitsu", "kendo", "full-contact",
+  // Gymnastique, force, danse
+  "gymnastique", "fitness", "musculation", "haltérophilie", "trampoline", "danse",
+  // Sports nautiques
+  "natation", "plongée", "canoë", "kayak", "aviron", "voile", "surf", "wakeboard",
+  // Cyclisme
+  "cyclisme", "vtt", "bmx",
+  // Équitation
+  "équitation",
+  // Plein air et montagne
+  "randonnée", "escalade", "spéléologie", "parapente", "planeur", "parachutisme",
+  "pelote basque", "pêche", "course d'orientation", "golf",
+  // Athlétisme et sports d'endurance
+  "athlétisme", "triathlon", "pentathlon",
+  // Sports d'hiver
+  "ski", "snowboard", "patinage",
+  // Sports de précision
+  "pétanque", "tir à l'arc", "tir sportif",
+  // Autres disciplines reconnues
+  "échecs", "handisport", "karting", "roller", "skateboard"
 ];
 
 function wait(milliseconds) {

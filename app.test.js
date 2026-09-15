@@ -186,7 +186,9 @@ test("parses quoted CSV fields", () => {
 });
 
 test("finds sports keywords without depending on accents", () => {
-  assert.deepEqual(findSportKeywords("Pratique de l'equitation et de la randonnée"), ["equitation", "randonnee"]);
+  // Le texte n'a pas d'accents ("equitation") mais doit tout de même matcher le mot-clé
+  // "équitation" (accentué) de la liste : la comparaison ignore les accents des deux côtés.
+  assert.deepEqual(findSportKeywords("Pratique de l'equitation et de la randonnée"), ["équitation", "randonnée"]);
 });
 
 test("extracts active sports associations in Côte-d'Or from RNA CSV, keeping unmatched ones at low priority", () => {
