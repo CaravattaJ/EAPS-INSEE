@@ -70,7 +70,7 @@ body {
   transition: background-color .15s ease, color .15s ease;
 }
 @media (prefers-reduced-motion: reduce) {
-  body, .card, .primary-button, .secondary-button { transition: none !important; }
+  body, .card, .primary-button, .accent-button, .secondary-button { transition: none !important; }
 }
 
 button, input, select { font: inherit; }
@@ -157,7 +157,12 @@ main {
 .hero-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: 24px 34px 30px; }
 .hero-fields { display: flex; flex-wrap: wrap; gap: 18px; }
 .hero-actions {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
+  /* width:100% force ce groupe de boutons à occuper toute la largeur disponible dès qu'il
+     passe sur sa propre ligne (justify-content:space-between du parent) : sans cela, un
+     item flex ne se contraint pas à la largeur du parent et son propre flex-wrap ne se
+     déclenche jamais, ce qui le fait déborder tel quel (5 boutons ne tiennent pas sur une
+     ligne) au lieu de passer à la ligne — débordement coupé net par .hero{overflow:hidden}. */
+  display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; width: 100%;
   clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
 }
 .since-field { display: grid; gap: 7px; max-width: 280px; color: var(--muted); font-size: .86rem; font-weight: 650; }
@@ -170,7 +175,11 @@ main {
 .eyebrow { margin: 0; color: var(--volt); font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); font-weight: 750; }
 
-.primary-button, .secondary-button {
+/* Trois niveaux d'importance pour les boutons de l'en-tête (5 actions au total) :
+   primary = l'action du jour (Rechercher) ; accent = le mécanisme officiel de sauvegarde
+   (Charger/Enregistrer les données, voir README) ; secondary = actions ponctuelles
+   (Importer RNA, Exporter en CSV, pagination...), au rendu neutre pour ne pas rivaliser. */
+.primary-button, .accent-button, .secondary-button {
   min-height: 44px;
   padding: 0 17px;
   border-radius: 6px;
@@ -181,6 +190,8 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
 .primary-button { border: 0; background: var(--volt-strong); color: #fff; box-shadow: 0 4px 14px rgba(255,90,31,.3); }
 .primary-button:hover { background: #E6480E; }
 .primary-button:disabled { cursor: wait; opacity: .65; }
+.accent-button { border: 1.5px solid var(--electric-strong); background: transparent; color: var(--electric); }
+.accent-button:hover { background: var(--electric-strong); color: #fff; }
 .secondary-button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); }
 .secondary-button:hover { border-color: var(--electric-strong); }
 
@@ -202,23 +213,10 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
 .section-heading h2 { font-size: 1.3rem; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
-.confidence-details { margin: 0 24px 20px; }
-.confidence-details summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--electric);
-  font-size: .86rem;
-  font-weight: 650;
-  cursor: pointer;
-  list-style: none;
-}
-.confidence-details summary::-webkit-details-marker { display: none; }
-.confidence-details summary::before { content: "ⓘ"; font-size: .95rem; }
 .confidence-note {
   display: grid;
   gap: 8px;
-  margin-top: 12px;
+  margin-bottom: 16px;
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -240,12 +238,17 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
 }
 .search-field input { width: min(280px, 35vw); padding: 0 13px; }
 .hide-low-field { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .86rem; font-weight: 650; white-space: nowrap; }
+/* table-layout:fixed force les colonnes à respecter les largeurs du colgroup (voir
+   index.template.html) plutôt que de s'étirer selon leur contenu (ex. le <select> de
+   décision) : c'est ce qui évite le défilement horizontal aux largeurs d'écran courantes.
+   overflow-x:auto reste en secours pour les très petits écrans. */
 .table-wrap { overflow-x: auto; border-top: 1px solid var(--border); }
-table { width: 100%; border-collapse: collapse; color: var(--ink); }
+table { width: 100%; border-collapse: collapse; color: var(--ink); table-layout: fixed; }
+th, td { overflow-wrap: anywhere; }
 th { padding: 0; background: var(--surface-sunken); color: var(--muted); font-size: .74rem; letter-spacing: .045em; text-align: left; text-transform: uppercase; }
 .sort-button {
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 10px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -260,8 +263,9 @@ th { padding: 0; background: var(--surface-sunken); color: var(--muted); font-si
 .sort-button.sort-active[data-sort-direction="asc"]::after { content: "▲"; }
 .sort-button.sort-active[data-sort-direction="desc"]::after { content: "▼"; }
 td { padding: 15px 16px; border-top: 1px solid var(--border); vertical-align: middle; font-size: .9rem; color: var(--ink); }
-.map-select-header { width: 1%; padding: 10px 12px; text-align: center; font-size: .9rem; }
-.map-select-cell { width: 1%; padding: 15px 12px 15px 16px; text-align: center; }
+.map-select-header { padding: 10px 8px; text-align: center; }
+.map-select-header svg { width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 1.8; vertical-align: middle; }
+.map-select-cell { padding: 15px 8px; text-align: center; }
 .map-select-checkbox { width: 17px; height: 17px; accent-color: var(--volt-strong); }
 .map-select-checkbox:disabled { opacity: .35; }
 tbody tr:hover { background: var(--surface-sunken); }
@@ -273,7 +277,7 @@ tbody tr:hover { background: var(--surface-sunken); }
 .priority.low { background: var(--pill-low-bg); color: var(--pill-low-ink); }
 .duplicate-flag { display: block; margin-top: 3px; color: var(--pill-mid-ink); font-size: .78rem; font-weight: 700; }
 .future-flag { display: inline-block; margin-top: 3px; color: var(--pill-mid-ink); font-size: .78rem; font-weight: 700; }
-.decision-select { max-width: 155px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.decision-select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); }
 .empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
 .empty-state h3 { margin: 8px 0 6px; color: var(--ink); }
 .empty-state p { margin: 0; }
@@ -370,7 +374,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
 @media (max-width: 760px) {
   .hero-controls, .section-heading { align-items: stretch; flex-direction: column; }
   .hero-actions { flex-direction: column; align-items: stretch; clip-path: none; }
-  .primary-button { width: 100%; }
+  .primary-button, .accent-button, .secondary-button { width: 100%; }
   .status-grid { grid-template-columns: 1fr; }
   .actions { flex-direction: column; }
   .search-field input { width: 100%; }
@@ -380,4 +384,8 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
   #map { height: 280px; }
   .pagination { flex-direction: column; gap: 10px; }
   .topbar-actions { margin-left: 0; }
+  /* En dessous de 760px, mieux vaut un tableau qui défile horizontalement (habituel sur
+     mobile) que des colonnes fixes trop étroites pour rester lisibles. */
+  table { table-layout: auto; }
+  .decision-select { width: auto; min-width: 140px; }
 }
