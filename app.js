@@ -603,15 +603,20 @@ if (typeof document !== "undefined") {
   let markerLayer = null;
   if (typeof L !== "undefined" && document.querySelector("#map")) {
     map = L.map("map").setView([47.05, 4.85], 8);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
+    // Fond de carte IGN (Géoplateforme, service public gratuit et sans clé) plutôt que
+    // tile.openstreetmap.org : ce dernier bloque les usages ne respectant pas sa politique
+    // pour serveurs bénévoles (fréquent derrière une même adresse IP partagée, ex. proxy
+    // d'entreprise), et l'alternative CARTO envisagée nécessite désormais une clé API.
+    L.tileLayer("https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}", {
+      attribution: 'Carte © <a href="https://www.geoportail.gouv.fr/">IGN-F/Géoportail</a>',
       maxZoom: 18
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
-    // La carte vit dans un bloc replié par défaut : Leaflet doit recalculer sa taille
-    // une fois le bloc réellement visible, sinon les tuiles restent mal disposées.
-    const mapBlock = document.querySelector("#map-block");
-    if (mapBlock) mapBlock.addEventListener("toggle", () => { if (mapBlock.open) map.invalidateSize(); });
+    // La carte est maintenant affichée en permanence dans une colonne dédiée : Leaflet doit
+    // tout de même recalculer sa taille après la mise en page initiale et à chaque
+    // redimensionnement de la fenêtre pour que les tuiles s'affichent correctement.
+    window.addEventListener("resize", () => map.invalidateSize());
+    setTimeout(() => map.invalidateSize(), 0);
   }
 
   function updateMap(items) {

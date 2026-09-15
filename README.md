@@ -6,7 +6,7 @@ Prototype sans installation et sans dépendance npm pour repérer les établisse
 
 Sous Windows, double-cliquer sur `ouvrir-veille-sports.bat`. Il est également possible d'ouvrir directement `index.html` dans un navigateur récent. Aucun droit administrateur et aucune installation ne sont nécessaires : l'application fonctionne sur un poste Windows standard sans droits administrateur (c'est un simple fichier HTML ouvert dans le navigateur).
 
-> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), ainsi que `unpkg.com` et `tile.openstreetmap.org` (bibliothèque et fond de carte).
+> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), ainsi que `unpkg.com` (bibliothèque de carte) et `data.geopf.fr` (fond de carte IGN, voir ci-dessous).
 
 `index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css` ou `app.js` sont absents du dossier téléchargé.
 
@@ -102,11 +102,11 @@ L'INSEE enregistre parfois une « date de création » qui correspond à une dat
 
 Chaque structure a de nouveau une décision (menu déroulant : À qualifier, À contrôler, Déjà connu, Pas un lieu de pratique, Hors périmètre). Au premier changement de décision sur un poste, l'application demande une fois le nom ou les initiales de l'agent (mémorisé ensuite sur ce poste) ; chaque décision garde ensuite trace de qui l'a prise et quand (affiché sous le menu, et exporté dans le CSV).
 
-Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune, le fonctionnement est **volontairement le même pour tout le monde, sur tous les navigateurs** (Chrome, Edge, Firefox...) :
-- **« Charger le partage »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats locaux : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
-- **« Enregistrer le partage »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
+Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune, le fonctionnement est **volontairement le même pour tout le monde, sur tous les navigateurs** (Chrome, Edge, Firefox...), via deux boutons toujours visibles en haut de page, à côté de « Rechercher » :
+- **« Charger les données »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats déjà affichés : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
+- **« Enregistrer les données »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
 
-Le réflexe à prendre : charger le partage avant de commencer à qualifier des structures, et l'enregistrer en fin de session (ou après un lot de décisions), pour rester synchronisé avec vos collègues.
+C'est le **seul mécanisme officiel de sauvegarde** : chargez vos données avant de commencer à qualifier des structures, et enregistrez-les en fin de session (ou après un lot de décisions). Le navigateur garde en coulisses une copie de secours de ce qui est affiché à l'écran (pour limiter une perte accidentelle en cas d'oubli), mais elle n'est ni partagée avec vos collègues, ni garantie dans le temps : ne comptez que sur le fichier `veille-sports-partage.json` enregistré.
 
 > Une version précédente proposait, en plus, une liaison automatique du dossier partagé sur Chrome/Edge (rechargement/réenregistrement sans clic, sauvegardes horodatées, détection des écritures concurrentes). Elle a été retirée : le comportement différait selon le navigateur et créait un risque de confusion (deux systèmes de partage à comprendre selon le poste). Le fonctionnement manuel, identique partout, est plus simple à expliquer et à vérifier pour l'agent.
 
@@ -114,9 +114,7 @@ Le réflexe à prendre : charger le partage avant de commencer à qualifier des 
 
 ### Réinitialisation des données locales
 
-Chaque navigateur (Chrome, Firefox...), sur chaque poste, garde ses propres résultats et décisions en mémoire locale (`localStorage`) — ce sont des espaces de stockage totalement indépendants les uns des autres, même sur le même ordinateur. L'application ne les vide jamais toute seule : au démarrage, elle affiche systématiquement ce qui a été accumulé lors des recherches précédentes sur ce navigateur.
-
-Le bouton **« Réinitialiser les données locales »** (dans le bloc Aide) vide ce stockage local — après confirmation, en rappelant de sauvegarder sur le partage avant si besoin. Il ne touche jamais au fichier partagé réseau : après une réinitialisation, cliquer sur « Charger le partage » permet de retrouver les données communes de l'équipe.
+Le bouton **« Réinitialiser les données locales »** (dans le bloc Aide) vide la copie de secours conservée par le navigateur sur ce poste — après confirmation, en rappelant d'enregistrer vos données avant si besoin. Il ne touche jamais au fichier `veille-sports-partage.json` : après une réinitialisation, cliquer sur « Charger les données » permet de retrouver les données de l'équipe.
 
 ### Alertes de fraîcheur
 
@@ -128,7 +126,7 @@ Le menu déroulant « Départements » (à côté du champ de date) permet de co
 
 ### Carte et géolocalisation
 
-Une carte (fond OpenStreetMap, bibliothèque Leaflet) affiche les structures actuellement visibles à l'écran (elle respecte le filtre de recherche et la case « Masquer les « Faible » », mais montre toutes les pages, pas seulement la page affichée). Un point coloré par niveau de confiance apparaît pour chaque structure dont la position est connue :
+Une carte (fond IGN via la Géoplateforme, service public gratuit et sans clé — bibliothèque Leaflet) est affichée en permanence dans une colonne à droite de l'écran, sans avoir besoin de la déplier ni de la faire défiler à part : elle reste visible pendant que vous consultez le tableau de résultats. Elle affiche les structures actuellement visibles à l'écran (elle respecte le filtre de recherche et la case « Masquer les « Faible » », mais montre toutes les pages, pas seulement la page affichée). Un point coloré par niveau de confiance apparaît pour chaque structure dont la position est connue :
 - Sirene fournit directement les coordonnées de l'établissement ;
 - le Journal officiel fournit directement les coordonnées de l'association (`geo_point`) ;
 - pour un import RNA (qui ne contient pas de coordonnées), l'application géolocalise chaque nouvelle association au niveau de sa commune via l'**API Adresse (BAN)** du gouvernement (`api-adresse.data.gouv.fr`, gratuite et sans clé). Cette position est celle du centre de la commune, pas l'adresse exacte du siège.
@@ -143,15 +141,13 @@ Le tableau affiche 25 résultats par page, avec des boutons Précédent/Suivant 
 
 Le Recensement des équipements sportifs (RES, `equipements.sports.gouv.fr`) recense les lieux de pratique physiques et pourrait servir de recoupement supplémentaire (un équipement récent sans structure exploitante identifiée serait un signal à vérifier). Cette piste n'a pas encore été implémentée : la structure exacte d'un export RES Côte-d'Or (colonnes disponibles, présence ou non d'une date exploitable) doit être vérifiée sur un fichier réel avant de développer cette fonctionnalité.
 
-### Interface : une page organisée par priorité d'usage
+### Interface : deux colonnes, l'essentiel toujours visible
 
-L'application reste une page unique, mais organisée pour que le geste quotidien (choisir une date, lancer la recherche, traiter les résultats) reste toujours visible en haut, tandis que ce qui ne sert qu'occasionnellement est replié par défaut dans trois blocs distincts (dépliables au clic) :
+L'application est organisée en deux colonnes. La colonne de gauche regroupe le geste quotidien (choisir une date, charger/enregistrer les données, lancer la recherche, traiter les résultats), avec un bloc **Aide** replié par défaut (explications détaillées : couverture de la recherche, calcul du niveau de confiance, limites connues), dépliable au clic pour ne pas encombrer l'écran. La colonne de droite affiche en permanence la **carte** de localisation des structures détectées, sans avoir à la déplier.
 
-- **Équipe** — partage du fichier commun avec les collègues.
-- **Carte** — localisation des structures détectées.
-- **Aide** — explications détaillées (couverture de la recherche, calcul du niveau de confiance, limites connues), regroupées en un seul endroit plutôt que dispersées sous forme de notes au fil de la page.
+Les boutons **« Charger les données »** et **« Enregistrer les données »** (fichier JSON partagé) sont placés en haut de page, à côté du bouton **« Rechercher »**, puisqu'il s'agit du geste à faire systématiquement en début et fin de session.
 
-Les textes visibles (boutons, libellés, messages) ont été raccourcis pour rester directs (« Importer RNA », « Exporter en CSV », « Lier le partage (auto) »...) ; les explications plus longues qui existaient auparavant en permanence à l'écran ont été déplacées dans le bloc Aide, accessible à la demande sans encombrer l'écran principal.
+Les textes visibles (boutons, libellés, messages) ont été raccourcis pour rester directs (« Importer RNA », « Exporter en CSV »...) ; les explications plus longues qui existaient auparavant en permanence à l'écran ont été déplacées dans le bloc Aide, accessible à la demande sans encombrer l'écran principal.
 
 La palette de couleurs a aussi été revue (bleu pour l'action principale, teal pour distinguer les blocs secondaires, rouge/ambre réservés aux niveaux de confiance et aux alertes) pour mieux hiérarchiser visuellement l'écran.
 
