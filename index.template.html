@@ -58,15 +58,15 @@
           </div>
         </div>
         <div class="hero-actions">
-          <button id="load-shared-button" class="accent-button" type="button">Charger les données</button>
-          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
-          <button id="rna-button" class="secondary-button" type="button">Importer RNA</button>
-          <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
-          <button id="save-shared-button" class="accent-button" type="button">Enregistrer les données</button>
-          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
           <button id="search-button" class="primary-button" type="button">
             <span aria-hidden="true">↻</span> Rechercher
           </button>
+          <button id="load-shared-button" class="accent-button" type="button">Charger les données</button>
+          <button id="save-shared-button" class="accent-button" type="button">Enregistrer les données</button>
+          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+          <button id="rna-button" class="secondary-button" type="button">Importer RNA</button>
+          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
+          <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
         </div>
       </div>
     </section>
@@ -88,7 +88,10 @@
     </section>
 
     <section id="stale-sync-warning" class="message error" hidden role="status">Aucune recherche depuis plus de 10 jours — relancez-la pour ne rien manquer.</section>
-    <section id="stale-rna-warning" class="message error" hidden role="status">Fichier RNA non réimporté depuis plus de 10 jours.</section>
+    <section id="stale-rna-warning" class="message error dismissible" hidden role="status">
+      <span>Fichier RNA non réimporté depuis plus de 10 jours.</span>
+      <button type="button" id="dismiss-rna-warning" class="dismiss-button" aria-label="Fermer cette information">×</button>
+    </section>
     <section id="message" class="message" hidden role="status"></section>
 
     <details class="card secondary-block">
@@ -102,6 +105,17 @@
             <li><span class="priority low">Faible</span> aucun indice sportif trouvé automatiquement — à vérifier avant d'écarter.</li>
           </ul>
           <p class="confidence-warning">Le code d'activité est déclaratif. Pour une association, l'adresse connue peut être celle du siège, pas du lieu de pratique.</p>
+        </div>
+        <div class="naf-codes">
+          <p class="help naf-codes-title">Codes NAF surveillés (colonne « Activité » du tableau) :</p>
+          <ul class="naf-code-list">
+            <li><code>93.11Z</code><span>Gestion d'installations sportives</span><span class="priority high">Élevée</span></li>
+            <li><code>93.12Z</code><span>Activités de clubs de sports</span><span class="priority high">Élevée</span></li>
+            <li><code>93.13Z</code><span>Activités des centres de culture physique</span><span class="priority high">Élevée</span></li>
+            <li><code>93.19Z</code><span>Autres activités liées au sport</span><span class="priority high">Élevée</span></li>
+            <li><code>85.51Z</code><span>Enseignement de disciplines sportives et d'activités de loisirs</span><span class="priority medium">Moyenne</span></li>
+            <li><code>93.29Z</code><span>Autres activités récréatives et de loisirs</span><span class="priority low">Faible</span></li>
+          </ul>
         </div>
         <ul class="help">
           <li>La recherche couvre 30 jours à la première utilisation, puis revérifie les 15 jours précédents à chaque fois pour ne rien manquer.</li>

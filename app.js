@@ -512,7 +512,7 @@ function sortItems(items, column, direction = "asc") {
 }
 
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set() } = options;
+  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
   filtered = sortItems(filtered, sortColumn, sortDirection);
@@ -527,7 +527,7 @@ function render(state, query = "", options = {}) {
   const staleSyncWarning = document.querySelector("#stale-sync-warning");
   if (staleSyncWarning) staleSyncWarning.hidden = daysSince(state.lastSync) <= STALE_SYNC_DAYS;
   const staleRnaWarning = document.querySelector("#stale-rna-warning");
-  if (staleRnaWarning) staleRnaWarning.hidden = daysSince(state.lastRnaImport) <= STALE_SYNC_DAYS;
+  if (staleRnaWarning) staleRnaWarning.hidden = rnaWarningDismissed || daysSince(state.lastRnaImport) <= STALE_SYNC_DAYS;
   document.querySelectorAll(".sort-button").forEach(button => {
     button.classList.toggle("sort-active", button.dataset.sort === sortColumn);
     button.dataset.sortDirection = button.dataset.sort === sortColumn ? sortDirection : "";
@@ -542,9 +542,9 @@ function render(state, query = "", options = {}) {
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
-      <td>${escapeHtml(item.activityLabel || item.activity)}</td>
+      <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
       <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
     </tr>`).join("");
@@ -631,6 +631,9 @@ if (typeof document !== "undefined") {
   // un ensemble vide signifie "aucune sélection", donc la carte affiche tous les résultats filtrés.
   let selectedKeys = new Set();
   let lastMapItems = [];
+  // Fermeture manuelle de l'alerte RNA (voir bouton #dismiss-rna-warning) : ne persiste pas
+  // d'une session à l'autre, seulement le temps de ne pas re-harceler l'agent qui l'a lue.
+  let rnaWarningDismissed = false;
 
   let map = null;
   let markerLayer = null;
@@ -672,6 +675,16 @@ if (typeof document !== "undefined") {
     return selectedKeys.size ? lastMapItems.filter(item => selectedKeys.has(itemKey(item))) : lastMapItems;
   }
 
+  // Recentre la carte sur les structures données (par ex. les résultats d'une recherche),
+  // plutôt que de la laisser sur sa vue par défaut. Appelé ponctuellement (pas à chaque
+  // rendu) pour éviter de faire sauter la carte pendant un simple filtre ou tri.
+  function focusMapOnItems(items) {
+    if (!map) return;
+    const coords = items.filter(item => typeof item.lat === "number" && typeof item.lon === "number").map(item => [item.lat, item.lon]);
+    if (!coords.length) return;
+    map.flyToBounds(coords, { padding: [28, 28], maxZoom: 12 });
+  }
+
   function updateMapSelectionNote() {
     const note = document.querySelector("#map-selection-note");
     if (!note) return;
@@ -685,7 +698,7 @@ if (typeof document !== "undefined") {
   }
 
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
     page = currentPage;
     lastMapItems = mapItems;
     updateMap(mapItemsForSelection());
@@ -705,6 +718,14 @@ if (typeof document !== "undefined") {
   if (departmentDropdown) {
     document.addEventListener("click", event => {
       if (departmentDropdown.open && !departmentDropdown.contains(event.target)) departmentDropdown.open = false;
+    });
+  }
+
+  const dismissRnaWarning = document.querySelector("#dismiss-rna-warning");
+  if (dismissRnaWarning) {
+    dismissRnaWarning.addEventListener("click", () => {
+      rnaWarningDismissed = true;
+      document.querySelector("#stale-rna-warning").hidden = true;
     });
   }
 
@@ -806,6 +827,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
+      focusMapOnItems([...keywordBatch, ...batches.flat(), ...joafeItems]);
       let summary = `${state.items.length} structure(s) trouvée(s) depuis le ${formatDate(sinceInput.value)} en ${departmentsLabel(departments)} (dont ${joafeItems.length} au Journal officiel).`;
       if (incompleteCount > 0) summary += " Attention, liste peut-être incomplète (beaucoup de résultats sur au moins une source).";
       showMessage(summary);
@@ -837,6 +859,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
+      focusMapOnItems(imported);
       showMessage(`${imported.length} association(s) candidate(s) trouvée(s) dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
