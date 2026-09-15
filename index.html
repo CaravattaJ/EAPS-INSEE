@@ -71,7 +71,15 @@ button { cursor: pointer; }
   font-size: .82rem;
 }
 
-main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 48px; }
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  align-items: start;
+  gap: 24px;
+  width: min(1400px, calc(100% - 32px));
+  margin: 28px auto 48px;
+}
+.primary-column { min-width: 0; }
 .card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
 .hero {
   display: flex;
@@ -81,6 +89,7 @@ main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 48px; }
   padding: 30px 34px;
   border-top: 4px solid var(--blue);
 }
+.hero-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
 .eyebrow { margin: 0; color: var(--blue-dark); font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 h2 { margin: 7px 0 0; font-size: clamp(1.4rem, 3vw, 2rem); color: var(--navy); }
 .hero-copy { max-width: 670px; margin: 10px 0 0; color: var(--muted); line-height: 1.55; }
@@ -212,8 +221,19 @@ tbody tr:hover { background: #fbfcff; }
 .secondary-block[open] > summary::after { content: "Masquer ▴"; }
 .secondary-block-body { padding: 0 24px 24px; }
 
-.map-help { margin: 0 0 14px; }
-#map { height: 420px; border-radius: 10px; border: 1px solid var(--border); }
+.map-column {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  max-height: calc(100vh - 40px);
+  border-top: 4px solid var(--teal);
+}
+.map-column-header .eyebrow { color: var(--teal); }
+.map-column-header h2 { margin: 4px 0 0; font-size: 1.1rem; }
+#map { flex: 1 1 auto; min-height: 420px; border-radius: 10px; border: 1px solid var(--border); }
 
 .department-dropdown { position: relative; max-width: 280px; }
 .department-dropdown summary {
@@ -256,8 +276,15 @@ tbody tr:hover { background: #fbfcff; }
 footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px max(24px, calc((100% - 1180px) / 2)); border-top: 1px solid var(--border); color: var(--muted); font-size: .8rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 
+@media (max-width: 1000px) {
+  main { grid-template-columns: 1fr; }
+  .map-column { position: static; max-height: none; }
+  #map { height: 360px; min-height: 0; }
+}
+
 @media (max-width: 760px) {
   .hero, .section-heading { align-items: stretch; flex-direction: column; }
+  .hero-actions { flex-direction: column; align-items: stretch; }
   .primary-button { width: 100%; }
   .status-grid { grid-template-columns: 1fr; }
   .actions { flex-direction: column; }
@@ -281,6 +308,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
   </header>
 
   <main>
+    <div class="primary-column">
     <section class="hero card">
       <div>
         <p class="eyebrow">Côte-d'Or</p>
@@ -309,9 +337,14 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
           </div>
         </div>
       </div>
-      <button id="search-button" class="primary-button" type="button">
-        <span aria-hidden="true">↻</span> Rechercher
-      </button>
+      <div class="hero-actions">
+        <button id="load-shared-button" class="secondary-button" type="button">Charger les données</button>
+        <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+        <button id="save-shared-button" class="secondary-button" type="button">Enregistrer les données</button>
+        <button id="search-button" class="primary-button" type="button">
+          <span aria-hidden="true">↻</span> Rechercher
+        </button>
+      </div>
     </section>
 
     <section class="status-grid" aria-label="État de la veille">
@@ -396,27 +429,6 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
       </div>
     </section>
 
-    <details id="team-block" class="card secondary-block">
-      <summary><p class="eyebrow">Équipe</p> Partager avec des collègues</summary>
-      <div class="secondary-block-body">
-        <div class="actions">
-          <button id="load-shared-button" class="secondary-button" type="button">Charger le partage</button>
-          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
-          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer le partage</button>
-        </div>
-        <p class="help">Utilisez un fichier <code>veille-sports-partage.json</code> commun (ex. sur un dossier réseau) pour fusionner vos résultats et décisions avec ceux de vos collègues, sans rien perdre : « Charger le partage » lit ce fichier et le fusionne avec vos résultats locaux, « Enregistrer le partage » télécharge un fichier à jour à déposer dans le dossier commun. Fonctionne de la même façon sur tous les navigateurs.</p>
-        <p class="help">Pensez à recharger le partage avant de commencer à travailler, et à l'enregistrer après vos décisions, pour rester synchronisé avec vos collègues.</p>
-      </div>
-    </details>
-
-    <details id="map-block" class="card secondary-block">
-      <summary><p class="eyebrow">Carte</p> Localiser les structures</summary>
-      <div class="secondary-block-body">
-        <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
-        <div id="map"></div>
-      </div>
-    </details>
-
     <details class="card secondary-block">
       <summary><p class="eyebrow">Aide</p> En savoir plus</summary>
       <div class="secondary-block-body">
@@ -427,10 +439,20 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
           <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
         </ul>
-        <p class="help">Les données affichées (résultats, décisions) sont enregistrées uniquement sur ce poste et ce navigateur — Chrome et Firefox, par exemple, ont chacun leurs propres données, même sur le même ordinateur.</p>
+        <p class="help">Utilisez <strong>« Charger les données »</strong> et <strong>« Enregistrer les données »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> — par exemple sur un dossier réseau commun. C'est le moyen officiel de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après vos décisions. Le navigateur garde aussi une copie de secours sur ce poste, mais elle n'est pas partagée avec vos collègues et peut être vidée à tout moment : ne comptez que sur le fichier enregistré.</p>
         <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
       </div>
     </details>
+    </div>
+
+    <aside class="map-column card">
+      <div class="map-column-header">
+        <p class="eyebrow">Carte</p>
+        <h2>Structures localisées</h2>
+      </div>
+      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
+      <div id="map"></div>
+    </aside>
   </main>
 
   <footer>
@@ -1045,15 +1067,20 @@ if (typeof document !== "undefined") {
   let markerLayer = null;
   if (typeof L !== "undefined" && document.querySelector("#map")) {
     map = L.map("map").setView([47.05, 4.85], 8);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
+    // Fond de carte IGN (Géoplateforme, service public gratuit et sans clé) plutôt que
+    // tile.openstreetmap.org : ce dernier bloque les usages ne respectant pas sa politique
+    // pour serveurs bénévoles (fréquent derrière une même adresse IP partagée, ex. proxy
+    // d'entreprise), et l'alternative CARTO envisagée nécessite désormais une clé API.
+    L.tileLayer("https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}", {
+      attribution: 'Carte © <a href="https://www.geoportail.gouv.fr/">IGN-F/Géoportail</a>',
       maxZoom: 18
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
-    // La carte vit dans un bloc replié par défaut : Leaflet doit recalculer sa taille
-    // une fois le bloc réellement visible, sinon les tuiles restent mal disposées.
-    const mapBlock = document.querySelector("#map-block");
-    if (mapBlock) mapBlock.addEventListener("toggle", () => { if (mapBlock.open) map.invalidateSize(); });
+    // La carte est maintenant affichée en permanence dans une colonne dédiée : Leaflet doit
+    // tout de même recalculer sa taille après la mise en page initiale et à chaque
+    // redimensionnement de la fenêtre pour que les tuiles s'affichent correctement.
+    window.addEventListener("resize", () => map.invalidateSize());
+    setTimeout(() => map.invalidateSize(), 0);
   }
 
   function updateMap(items) {

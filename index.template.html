@@ -19,6 +19,7 @@
   </header>
 
   <main>
+    <div class="primary-column">
     <section class="hero card">
       <div>
         <p class="eyebrow">Côte-d'Or</p>
@@ -47,9 +48,14 @@
           </div>
         </div>
       </div>
-      <button id="search-button" class="primary-button" type="button">
-        <span aria-hidden="true">↻</span> Rechercher
-      </button>
+      <div class="hero-actions">
+        <button id="load-shared-button" class="secondary-button" type="button">Charger les données</button>
+        <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+        <button id="save-shared-button" class="secondary-button" type="button">Enregistrer les données</button>
+        <button id="search-button" class="primary-button" type="button">
+          <span aria-hidden="true">↻</span> Rechercher
+        </button>
+      </div>
     </section>
 
     <section class="status-grid" aria-label="État de la veille">
@@ -134,27 +140,6 @@
       </div>
     </section>
 
-    <details id="team-block" class="card secondary-block">
-      <summary><p class="eyebrow">Équipe</p> Partager avec des collègues</summary>
-      <div class="secondary-block-body">
-        <div class="actions">
-          <button id="load-shared-button" class="secondary-button" type="button">Charger le partage</button>
-          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
-          <button id="save-shared-button" class="secondary-button" type="button">Enregistrer le partage</button>
-        </div>
-        <p class="help">Utilisez un fichier <code>veille-sports-partage.json</code> commun (ex. sur un dossier réseau) pour fusionner vos résultats et décisions avec ceux de vos collègues, sans rien perdre : « Charger le partage » lit ce fichier et le fusionne avec vos résultats locaux, « Enregistrer le partage » télécharge un fichier à jour à déposer dans le dossier commun. Fonctionne de la même façon sur tous les navigateurs.</p>
-        <p class="help">Pensez à recharger le partage avant de commencer à travailler, et à l'enregistrer après vos décisions, pour rester synchronisé avec vos collègues.</p>
-      </div>
-    </details>
-
-    <details id="map-block" class="card secondary-block">
-      <summary><p class="eyebrow">Carte</p> Localiser les structures</summary>
-      <div class="secondary-block-body">
-        <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
-        <div id="map"></div>
-      </div>
-    </details>
-
     <details class="card secondary-block">
       <summary><p class="eyebrow">Aide</p> En savoir plus</summary>
       <div class="secondary-block-body">
@@ -165,10 +150,20 @@
           <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
         </ul>
-        <p class="help">Les données affichées (résultats, décisions) sont enregistrées uniquement sur ce poste et ce navigateur — Chrome et Firefox, par exemple, ont chacun leurs propres données, même sur le même ordinateur.</p>
+        <p class="help">Utilisez <strong>« Charger les données »</strong> et <strong>« Enregistrer les données »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> — par exemple sur un dossier réseau commun. C'est le moyen officiel de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après vos décisions. Le navigateur garde aussi une copie de secours sur ce poste, mais elle n'est pas partagée avec vos collègues et peut être vidée à tout moment : ne comptez que sur le fichier enregistré.</p>
         <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
       </div>
     </details>
+    </div>
+
+    <aside class="map-column card">
+      <div class="map-column-header">
+        <p class="eyebrow">Carte</p>
+        <h2>Structures localisées</h2>
+      </div>
+      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
+      <div id="map"></div>
+    </aside>
   </main>
 
   <footer>
