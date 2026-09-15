@@ -126,6 +126,7 @@
         <table>
           <thead>
             <tr>
+              <th class="map-select-header"><span class="sr-only">Afficher sur la carte</span>🗺</th>
               <th><button type="button" class="sort-button" data-sort="priority">Niveau de confiance</button></th>
               <th><button type="button" class="sort-button" data-sort="name">Structure</button></th>
               <th><button type="button" class="sort-button" data-sort="commune">Commune</button></th>
@@ -166,12 +167,13 @@
     </details>
     </div>
 
-    <aside class="map-column card">
+    <aside id="map-column" class="map-column card">
       <div class="map-column-header">
         <p class="eyebrow">Carte</p>
         <h2>Structures localisées</h2>
       </div>
-      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
+      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance. Cochez des lignes dans le tableau (colonne 🗺) pour n'afficher qu'une sélection.</p>
+      <p id="map-selection-note" class="help" hidden></p>
       <div id="map"></div>
     </aside>
   </main>

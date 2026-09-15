@@ -512,7 +512,7 @@ function sortItems(items, column, direction = "asc") {
 }
 
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE } = options;
+  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set() } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
   filtered = sortItems(filtered, sortColumn, sortDirection);
@@ -540,6 +540,7 @@ function render(state, query = "", options = {}) {
   if (nextButton) nextButton.disabled = currentPage >= totalPages;
   document.querySelector("#results-body").innerHTML = pageItems.map(item => `
     <tr>
+      <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
       <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
@@ -627,6 +628,10 @@ if (typeof document !== "undefined") {
   let sortColumn = null;
   let sortDirection = "asc";
   let page = 1;
+  // Sélection manuelle de structures à isoler sur la carte (voir renderNow / updateMapSelectionNote) :
+  // un ensemble vide signifie "aucune sélection", donc la carte affiche tous les résultats filtrés.
+  let selectedKeys = new Set();
+  let lastMapItems = [];
 
   let map = null;
   let markerLayer = null;
@@ -664,10 +669,28 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function mapItemsForSelection() {
+    return selectedKeys.size ? lastMapItems.filter(item => selectedKeys.has(itemKey(item))) : lastMapItems;
+  }
+
+  function updateMapSelectionNote() {
+    const note = document.querySelector("#map-selection-note");
+    if (!note) return;
+    if (selectedKeys.size) {
+      note.hidden = false;
+      note.innerHTML = `${selectedKeys.size} structure(s) sélectionnée(s) affichée(s) — <button type="button" id="clear-map-selection" class="link-button">Tout afficher</button>`;
+    } else {
+      note.hidden = true;
+      note.innerHTML = "";
+    }
+  }
+
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys });
     page = currentPage;
-    updateMap(mapItems);
+    lastMapItems = mapItems;
+    updateMap(mapItemsForSelection());
+    updateMapSelectionNote();
   };
 
   const updateDepartmentSummary = () => {
@@ -825,6 +848,15 @@ if (typeof document !== "undefined") {
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
 
   document.querySelector("#results-body").addEventListener("change", async event => {
+    if (event.target.matches(".map-select-checkbox")) {
+      const key = event.target.dataset.key;
+      if (event.target.checked) selectedKeys.add(key); else selectedKeys.delete(key);
+      // Ne rafraîchit que la carte : reconstruire le tableau perdrait l'état des autres
+      // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
+      updateMap(mapItemsForSelection());
+      updateMapSelectionNote();
+      return;
+    }
     if (!event.target.matches(".decision-select")) return;
     const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
     if (!item) return;
@@ -833,6 +865,14 @@ if (typeof document !== "undefined") {
     item.decidedAt = new Date().toISOString();
     saveState(state);
     renderNow();
+  });
+
+  document.querySelector("#map-column").addEventListener("click", event => {
+    if (!event.target.matches("#clear-map-selection")) return;
+    selectedKeys.clear();
+    document.querySelectorAll(".map-select-checkbox").forEach(checkbox => { checkbox.checked = false; });
+    updateMap(mapItemsForSelection());
+    updateMapSelectionNote();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
@@ -877,6 +917,7 @@ if (typeof document !== "undefined") {
       state.lastSearchSince = null;
       state.lastRnaImport = null;
       saveState(state);
+      selectedKeys.clear();
       page = 1;
       renderNow();
       showMessage("Données locales réinitialisées. Rechargez le fichier partagé si besoin pour les récupérer.");

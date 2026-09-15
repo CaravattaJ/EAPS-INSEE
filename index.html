@@ -90,6 +90,7 @@ button { cursor: pointer; }
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   min-height: 78px;
@@ -205,7 +206,11 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
 .message.error { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger); }
 
 .results-card { overflow: hidden; }
-.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 24px; }
+/* flex-wrap est essentiel ici : sans lui, le titre et les actions (recherche, RNA, export)
+   ne tiennent pas sur une seule ligne aux largeurs d'écran courantes une fois la colonne
+   carte réservée, et débordent hors de la carte (coupés net par overflow:hidden ci-dessus)
+   au lieu de passer proprement à la ligne suivante. */
+.section-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 20px; padding: 24px; }
 .section-heading h2 { font-size: 1.3rem; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
@@ -267,6 +272,10 @@ th { padding: 0; background: var(--surface-sunken); color: var(--muted); font-si
 .sort-button.sort-active[data-sort-direction="asc"]::after { content: "▲"; }
 .sort-button.sort-active[data-sort-direction="desc"]::after { content: "▼"; }
 td { padding: 15px 16px; border-top: 1px solid var(--border); vertical-align: middle; font-size: .9rem; color: var(--ink); }
+.map-select-header { width: 1%; padding: 10px 12px; text-align: center; font-size: .9rem; }
+.map-select-cell { width: 1%; padding: 15px 12px 15px 16px; text-align: center; }
+.map-select-checkbox { width: 17px; height: 17px; accent-color: var(--volt-strong); }
+.map-select-checkbox:disabled { opacity: .35; }
 tbody tr:hover { background: var(--surface-sunken); }
 .structure-name { display: block; margin-bottom: 3px; color: var(--ink); font-weight: 750; }
 .identifier { color: var(--muted); font-size: .76rem; font-family: var(--font-mono); }
@@ -355,6 +364,8 @@ tbody tr:hover { background: var(--surface-sunken); }
 
 .help { max-width: 800px; margin: 0 0 10px; color: var(--muted); font-size: .87rem; line-height: 1.55; }
 .help code { font-family: var(--font-mono); background: var(--surface-sunken); padding: 1px 5px; border-radius: 4px; }
+.link-button { border: 0; background: none; padding: 0; color: var(--electric); font-weight: 700; font-size: inherit; text-decoration: underline; }
+.link-button:hover { color: var(--volt); }
 .help:last-child { margin-bottom: 0; }
 .help ul { margin: 4px 0; padding-left: 20px; }
 .help li { margin-bottom: 4px; }
@@ -499,6 +510,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
         <table>
           <thead>
             <tr>
+              <th class="map-select-header"><span class="sr-only">Afficher sur la carte</span>🗺</th>
               <th><button type="button" class="sort-button" data-sort="priority">Niveau de confiance</button></th>
               <th><button type="button" class="sort-button" data-sort="name">Structure</button></th>
               <th><button type="button" class="sort-button" data-sort="commune">Commune</button></th>
@@ -539,12 +551,13 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
     </details>
     </div>
 
-    <aside class="map-column card">
+    <aside id="map-column" class="map-column card">
       <div class="map-column-header">
         <p class="eyebrow">Carte</p>
         <h2>Structures localisées</h2>
       </div>
-      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
+      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance. Cochez des lignes dans le tableau (colonne 🗺) pour n'afficher qu'une sélection.</p>
+      <p id="map-selection-note" class="help" hidden></p>
       <div id="map"></div>
     </aside>
   </main>
@@ -1070,7 +1083,7 @@ function sortItems(items, column, direction = "asc") {
 }
 
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE } = options;
+  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set() } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
   filtered = sortItems(filtered, sortColumn, sortDirection);
@@ -1098,6 +1111,7 @@ function render(state, query = "", options = {}) {
   if (nextButton) nextButton.disabled = currentPage >= totalPages;
   document.querySelector("#results-body").innerHTML = pageItems.map(item => `
     <tr>
+      <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
       <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
@@ -1185,6 +1199,10 @@ if (typeof document !== "undefined") {
   let sortColumn = null;
   let sortDirection = "asc";
   let page = 1;
+  // Sélection manuelle de structures à isoler sur la carte (voir renderNow / updateMapSelectionNote) :
+  // un ensemble vide signifie "aucune sélection", donc la carte affiche tous les résultats filtrés.
+  let selectedKeys = new Set();
+  let lastMapItems = [];
 
   let map = null;
   let markerLayer = null;
@@ -1222,10 +1240,28 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function mapItemsForSelection() {
+    return selectedKeys.size ? lastMapItems.filter(item => selectedKeys.has(itemKey(item))) : lastMapItems;
+  }
+
+  function updateMapSelectionNote() {
+    const note = document.querySelector("#map-selection-note");
+    if (!note) return;
+    if (selectedKeys.size) {
+      note.hidden = false;
+      note.innerHTML = `${selectedKeys.size} structure(s) sélectionnée(s) affichée(s) — <button type="button" id="clear-map-selection" class="link-button">Tout afficher</button>`;
+    } else {
+      note.hidden = true;
+      note.innerHTML = "";
+    }
+  }
+
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys });
     page = currentPage;
-    updateMap(mapItems);
+    lastMapItems = mapItems;
+    updateMap(mapItemsForSelection());
+    updateMapSelectionNote();
   };
 
   const updateDepartmentSummary = () => {
@@ -1383,6 +1419,15 @@ if (typeof document !== "undefined") {
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
 
   document.querySelector("#results-body").addEventListener("change", async event => {
+    if (event.target.matches(".map-select-checkbox")) {
+      const key = event.target.dataset.key;
+      if (event.target.checked) selectedKeys.add(key); else selectedKeys.delete(key);
+      // Ne rafraîchit que la carte : reconstruire le tableau perdrait l'état des autres
+      // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
+      updateMap(mapItemsForSelection());
+      updateMapSelectionNote();
+      return;
+    }
     if (!event.target.matches(".decision-select")) return;
     const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
     if (!item) return;
@@ -1391,6 +1436,14 @@ if (typeof document !== "undefined") {
     item.decidedAt = new Date().toISOString();
     saveState(state);
     renderNow();
+  });
+
+  document.querySelector("#map-column").addEventListener("click", event => {
+    if (!event.target.matches("#clear-map-selection")) return;
+    selectedKeys.clear();
+    document.querySelectorAll(".map-select-checkbox").forEach(checkbox => { checkbox.checked = false; });
+    updateMap(mapItemsForSelection());
+    updateMapSelectionNote();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
@@ -1435,6 +1488,7 @@ if (typeof document !== "undefined") {
       state.lastSearchSince = null;
       state.lastRnaImport = null;
       saveState(state);
+      selectedKeys.clear();
       page = 1;
       renderNow();
       showMessage("Données locales réinitialisées. Rechargez le fichier partagé si besoin pour les récupérer.");

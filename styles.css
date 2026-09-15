@@ -78,6 +78,7 @@ button { cursor: pointer; }
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   min-height: 78px;
@@ -193,7 +194,11 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
 .message.error { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger); }
 
 .results-card { overflow: hidden; }
-.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 24px; }
+/* flex-wrap est essentiel ici : sans lui, le titre et les actions (recherche, RNA, export)
+   ne tiennent pas sur une seule ligne aux largeurs d'écran courantes une fois la colonne
+   carte réservée, et débordent hors de la carte (coupés net par overflow:hidden ci-dessus)
+   au lieu de passer proprement à la ligne suivante. */
+.section-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 20px; padding: 24px; }
 .section-heading h2 { font-size: 1.3rem; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
@@ -255,6 +260,10 @@ th { padding: 0; background: var(--surface-sunken); color: var(--muted); font-si
 .sort-button.sort-active[data-sort-direction="asc"]::after { content: "▲"; }
 .sort-button.sort-active[data-sort-direction="desc"]::after { content: "▼"; }
 td { padding: 15px 16px; border-top: 1px solid var(--border); vertical-align: middle; font-size: .9rem; color: var(--ink); }
+.map-select-header { width: 1%; padding: 10px 12px; text-align: center; font-size: .9rem; }
+.map-select-cell { width: 1%; padding: 15px 12px 15px 16px; text-align: center; }
+.map-select-checkbox { width: 17px; height: 17px; accent-color: var(--volt-strong); }
+.map-select-checkbox:disabled { opacity: .35; }
 tbody tr:hover { background: var(--surface-sunken); }
 .structure-name { display: block; margin-bottom: 3px; color: var(--ink); font-weight: 750; }
 .identifier { color: var(--muted); font-size: .76rem; font-family: var(--font-mono); }
@@ -343,6 +352,8 @@ tbody tr:hover { background: var(--surface-sunken); }
 
 .help { max-width: 800px; margin: 0 0 10px; color: var(--muted); font-size: .87rem; line-height: 1.55; }
 .help code { font-family: var(--font-mono); background: var(--surface-sunken); padding: 1px 5px; border-radius: 4px; }
+.link-button { border: 0; background: none; padding: 0; color: var(--electric); font-weight: 700; font-size: inherit; text-decoration: underline; }
+.link-button:hover { color: var(--volt); }
 .help:last-child { margin-bottom: 0; }
 .help ul { margin: 4px 0; padding-left: 20px; }
 .help li { margin-bottom: 4px; }
