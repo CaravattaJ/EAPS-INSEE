@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Repérage local des nouveaux établissements sportifs de Côte-d'Or.">
   <title>Veille Sports 21</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <!-- INLINE_CSS -->
 </head>
@@ -15,16 +18,23 @@
       <p class="eyebrow">Service de contrôle</p>
       <h1>Veille Sports 21</h1>
     </div>
-    <span class="local-badge">Données locales</span>
+    <div class="topbar-actions">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Basculer entre thème clair et thème sombre">
+        <span class="icon" aria-hidden="true">🌙</span><span id="theme-toggle-label">Sombre</span>
+      </button>
+      <span class="local-badge">Données locales</span>
+    </div>
   </header>
 
   <main>
     <div class="primary-column">
     <section class="hero card">
-      <div>
+      <div class="hero-photo">
         <p class="eyebrow">Côte-d'Or</p>
         <h2>Repérer les nouvelles structures sportives</h2>
         <p class="hero-copy">Trouvez les établissements et associations sportives récemment créés.</p>
+      </div>
+      <div class="hero-controls">
         <div class="hero-fields">
           <label class="since-field">
             <span>Chercher les structures créées depuis le</span>
@@ -47,14 +57,17 @@
             </details>
           </div>
         </div>
-      </div>
-      <div class="hero-actions">
-        <button id="load-shared-button" class="secondary-button" type="button">Charger les données</button>
-        <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
-        <button id="save-shared-button" class="secondary-button" type="button">Enregistrer les données</button>
-        <button id="search-button" class="primary-button" type="button">
-          <span aria-hidden="true">↻</span> Rechercher
-        </button>
+        <div class="hero-actions">
+          <button id="search-button" class="primary-button" type="button">
+            <span aria-hidden="true">↻</span> Rechercher
+          </button>
+          <button id="load-shared-button" class="accent-button" type="button">Charger les données</button>
+          <button id="save-shared-button" class="accent-button" type="button">Enregistrer les données</button>
+          <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
+          <button id="rna-button" class="secondary-button" type="button">Importer RNA</button>
+          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
+          <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
+        </div>
       </div>
     </section>
 
@@ -75,8 +88,57 @@
     </section>
 
     <section id="stale-sync-warning" class="message error" hidden role="status">Aucune recherche depuis plus de 10 jours — relancez-la pour ne rien manquer.</section>
-    <section id="stale-rna-warning" class="message error" hidden role="status">Fichier RNA non réimporté depuis plus de 10 jours.</section>
+    <section id="stale-rna-warning" class="message error dismissible" hidden role="status">
+      <span>Fichier RNA non réimporté depuis plus de 10 jours.</span>
+      <button type="button" id="dismiss-rna-warning" class="dismiss-button" aria-label="Fermer cette information">×</button>
+    </section>
     <section id="message" class="message" hidden role="status"></section>
+
+    <details class="card secondary-block">
+      <summary><p class="eyebrow">Aide</p> Confiance &amp; fonctionnement</summary>
+      <div class="secondary-block-body">
+        <div class="methodology">
+          <p class="help methodology-title"><strong>Méthodologie conseillée</strong></p>
+          <ol class="help">
+            <li>En début de session, cliquez sur <strong>« Charger les données »</strong> et sélectionnez le fichier dans le dossier <code>sauvegarde</code> (à côté d'<code>index.html</code>) pour repartir des dernières décisions de l'équipe.</li>
+            <li>Laissez la date proposée par défaut avant de cliquer sur <strong>« Rechercher »</strong> — elle recule volontairement de quelques jours par rapport à votre dernière recherche, pour ne pas manquer une structure publiée en retard par l'administration.</li>
+            <li>Qualifiez les nouvelles structures détectées (colonne Décision).</li>
+            <li>En fin de session, ou après un lot de décisions, cliquez sur <strong>« Enregistrer les données »</strong> puis placez le fichier téléchargé dans le dossier <code>sauvegarde</code> (en écrasant l'ancien), pour partager votre travail avec l'équipe.</li>
+            <li>Une fois par mois environ, relancez une recherche sur une période plus large (60 à 90 jours, en reculant la date à la main) et importez un export RNA à jour (bouton <strong>« Importer RNA »</strong>) pour rattraper d'éventuelles structures encore non détectées.</li>
+          </ol>
+        </div>
+        <div class="confidence-note" aria-labelledby="confidence-title">
+          <p id="confidence-title">Niveau de confiance : un indice automatique, pas une décision de contrôle&nbsp;:</p>
+          <ul>
+            <li><span class="priority high">Élevée</span> activité ou objet directement sportif (club, installation, centre de culture physique...).</li>
+            <li><span class="priority medium">Moyenne</span> enseignement sportif/loisir, ou mot-clé sportif dans le nom.</li>
+            <li><span class="priority low">Faible</span> aucun indice sportif trouvé automatiquement — à vérifier avant d'écarter.</li>
+          </ul>
+          <p class="confidence-warning">Le code d'activité est déclaratif. Pour une association, l'adresse connue peut être celle du siège, pas du lieu de pratique.</p>
+        </div>
+        <div class="naf-codes">
+          <p class="help naf-codes-title">Codes NAF surveillés (colonne « Activité » du tableau) :</p>
+          <ul class="naf-code-list">
+            <li><code>93.11Z</code><span>Gestion d'installations sportives</span><span class="priority high">Élevée</span></li>
+            <li><code>93.12Z</code><span>Activités de clubs de sports</span><span class="priority high">Élevée</span></li>
+            <li><code>93.13Z</code><span>Activités des centres de culture physique</span><span class="priority high">Élevée</span></li>
+            <li><code>93.19Z</code><span>Autres activités liées au sport</span><span class="priority high">Élevée</span></li>
+            <li><code>85.51Z</code><span>Enseignement de disciplines sportives et d'activités de loisirs</span><span class="priority medium">Moyenne</span></li>
+            <li><code>93.29Z</code><span>Autres activités récréatives et de loisirs</span><span class="priority low">Faible</span></li>
+          </ul>
+        </div>
+        <ul class="help">
+          <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour vérifier rapidement de quoi il s'agit avant de qualifier.</li>
+          <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant « sport ».</li>
+          <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
+          <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
+          <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
+          <li>Le bouton clair/sombre en haut à droite change uniquement l'affichage, sans effet sur vos données.</li>
+        </ul>
+        <p class="help">Utilisez <strong>« Charger les données »</strong> et <strong>« Enregistrer les données »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> dans le dossier <code>sauvegarde</code>, à côté d'<code>index.html</code> — un navigateur ne peut pas déposer un fichier téléchargé où que ce soit tout seul, il faut donc l'y glisser vous-même après chaque téléchargement. Si ce dossier est sur un espace réseau commun, c'est le moyen officiel de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après vos décisions. Le navigateur garde aussi une copie de secours sur ce poste, mais elle n'est pas partagée avec vos collègues et peut être vidée à tout moment : ne comptez que sur le fichier du dossier <code>sauvegarde</code>.</p>
+        <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
+      </div>
+    </details>
 
     <section class="card results-card">
       <div class="section-heading">
@@ -93,34 +155,30 @@
             <input id="hide-low-input" type="checkbox" checked>
             <span>Masquer les « Faible »</span>
           </label>
-          <button id="rna-button" class="secondary-button" type="button">Importer RNA</button>
-          <input id="rna-input" class="sr-only" type="file" accept=".csv,text/csv">
-          <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
         </div>
       </div>
 
-      <details class="confidence-details">
-        <summary>Comment la confiance est-elle calculée&nbsp;?</summary>
-        <div class="confidence-note" aria-labelledby="confidence-title">
-          <p id="confidence-title">Un indice automatique, pas une décision de contrôle&nbsp;:</p>
-          <ul>
-            <li><span class="priority high">Élevée</span> activité ou objet directement sportif (club, installation, centre de culture physique...).</li>
-            <li><span class="priority medium">Moyenne</span> enseignement sportif/loisir, ou mot-clé sportif dans le nom.</li>
-            <li><span class="priority low">Faible</span> aucun indice sportif trouvé automatiquement — à vérifier avant d'écarter.</li>
-          </ul>
-          <p class="confidence-warning">Le code d'activité est déclaratif. Pour une association, l'adresse connue peut être celle du siège, pas du lieu de pratique.</p>
-        </div>
-      </details>
-
       <div class="table-wrap">
         <table>
+          <colgroup>
+            <col style="width:5%">
+            <col style="width:13%">
+            <col style="width:23%">
+            <col style="width:12%">
+            <col style="width:11%">
+            <col style="width:16%">
+            <col style="width:20%">
+          </colgroup>
           <thead>
             <tr>
-              <th><button type="button" class="sort-button" data-sort="priority">Niveau de confiance</button></th>
+              <th class="map-select-header">
+                <span class="sr-only">Afficher sur la carte</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.4"/></svg>
+              </th>
+              <th><button type="button" class="sort-button" data-sort="priority">Confiance</button></th>
               <th><button type="button" class="sort-button" data-sort="name">Structure</button></th>
               <th><button type="button" class="sort-button" data-sort="commune">Commune</button></th>
               <th><button type="button" class="sort-button" data-sort="activity">Activité</button></th>
-              <th>Description</th>
               <th><button type="button" class="sort-button" data-sort="creationDate">Création</button></th>
               <th>Décision</th>
             </tr>
@@ -139,29 +197,15 @@
         <button id="next-page-button" class="secondary-button" type="button">Suivant →</button>
       </div>
     </section>
-
-    <details class="card secondary-block">
-      <summary><p class="eyebrow">Aide</p> En savoir plus</summary>
-      <div class="secondary-block-body">
-        <ul class="help">
-          <li>La recherche couvre 30 jours à la première utilisation, puis revérifie les 15 jours précédents à chaque fois pour ne rien manquer.</li>
-          <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant « sport ».</li>
-          <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
-          <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
-          <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
-        </ul>
-        <p class="help">Utilisez <strong>« Charger les données »</strong> et <strong>« Enregistrer les données »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> — par exemple sur un dossier réseau commun. C'est le moyen officiel de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après vos décisions. Le navigateur garde aussi une copie de secours sur ce poste, mais elle n'est pas partagée avec vos collègues et peut être vidée à tout moment : ne comptez que sur le fichier enregistré.</p>
-        <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
-      </div>
-    </details>
     </div>
 
-    <aside class="map-column card">
+    <aside id="map-column" class="map-column card">
       <div class="map-column-header">
         <p class="eyebrow">Carte</p>
         <h2>Structures localisées</h2>
       </div>
-      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance.</p>
+      <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance. Cochez des lignes dans le tableau (première colonne) pour n'afficher qu'une sélection.</p>
+      <p id="map-selection-note" class="help" hidden></p>
       <div id="map"></div>
     </aside>
   </main>

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import "./sport-keywords.js";
 import "./app.js";
 
 const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
@@ -186,7 +187,9 @@ test("parses quoted CSV fields", () => {
 });
 
 test("finds sports keywords without depending on accents", () => {
-  assert.deepEqual(findSportKeywords("Pratique de l'equitation et de la randonnée"), ["equitation", "randonnee"]);
+  // Le texte n'a pas d'accents ("equitation") mais doit tout de même matcher le mot-clé
+  // "équitation" (accentué) de la liste : la comparaison ignore les accents des deux côtés.
+  assert.deepEqual(findSportKeywords("Pratique de l'equitation et de la randonnée"), ["équitation", "randonnée"]);
 });
 
 test("extracts active sports associations in Côte-d'Or from RNA CSV, keeping unmatched ones at low priority", () => {

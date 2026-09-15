@@ -6,9 +6,9 @@ Prototype sans installation et sans dépendance npm pour repérer les établisse
 
 Sous Windows, double-cliquer sur `ouvrir-veille-sports.bat`. Il est également possible d'ouvrir directement `index.html` dans un navigateur récent. Aucun droit administrateur et aucune installation ne sont nécessaires : l'application fonctionne sur un poste Windows standard sans droits administrateur (c'est un simple fichier HTML ouvert dans le navigateur).
 
-> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), ainsi que `unpkg.com` (bibliothèque de carte) et `data.geopf.fr` (fond de carte IGN, voir ci-dessous).
+> **Point à vérifier auprès de votre service informatique :** si un pare-feu ou un proxy d'entreprise bloque les appels sortants, il faudra faire autoriser les domaines suivants : `recherche-entreprises.api.gouv.fr`, `journal-officiel-datadila.opendatasoft.com`, `api-adresse.data.gouv.fr` (géolocalisation), `unpkg.com` (bibliothèque de carte), `data.geopf.fr` (fond de carte IGN, voir ci-dessous), ainsi que `fonts.googleapis.com` et `fonts.gstatic.com` (typographies de l'interface).
 
-`index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css` ou `app.js` sont absents du dossier téléchargé.
+`index.html` est autonome : sa mise en forme et son JavaScript sont intégrés dans le fichier. L'application continue donc de fonctionner même si `styles.css`, `app.js` ou `sport-keywords.js` sont absents du dossier téléchargé.
 
 Le JavaScript est chargé comme un script classique afin de fonctionner directement avec une adresse `file:///...`. Il ne faut pas ajouter `type="module"` au script : Chrome bloque les modules locaux avec une erreur CORS lorsque la page n'est pas servie en HTTP.
 
@@ -103,14 +103,16 @@ L'INSEE enregistre parfois une « date de création » qui correspond à une dat
 Chaque structure a de nouveau une décision (menu déroulant : À qualifier, À contrôler, Déjà connu, Pas un lieu de pratique, Hors périmètre). Au premier changement de décision sur un poste, l'application demande une fois le nom ou les initiales de l'agent (mémorisé ensuite sur ce poste) ; chaque décision garde ensuite trace de qui l'a prise et quand (affiché sous le menu, et exporté dans le CSV).
 
 Pour travailler à plusieurs sur le même espace de veille, sans serveur ni base de données commune, le fonctionnement est **volontairement le même pour tout le monde, sur tous les navigateurs** (Chrome, Edge, Firefox...), via deux boutons toujours visibles en haut de page, à côté de « Rechercher » :
-- **« Charger les données »** ouvre un fichier `veille-sports-partage.json` (par exemple depuis un dossier réseau partagé) et fusionne son contenu avec vos résultats déjà affichés : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
-- **« Enregistrer les données »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles, à déposer manuellement dans le dossier partagé (en écrasant l'ancien).
+- **« Charger les données »** ouvre un fichier `veille-sports-partage.json` et fusionne son contenu avec vos résultats déjà affichés : rien n'est perdu, et pour chaque structure connue des deux côtés, c'est la décision la **plus récente** (par date, peu importe qui l'a prise) qui est conservée.
+- **« Enregistrer les données »** télécharge un fichier `veille-sports-partage.json` avec l'ensemble de vos structures et décisions actuelles.
 
-C'est le **seul mécanisme officiel de sauvegarde** : chargez vos données avant de commencer à qualifier des structures, et enregistrez-les en fin de session (ou après un lot de décisions). Le navigateur garde en coulisses une copie de secours de ce qui est affiché à l'écran (pour limiter une perte accidentelle en cas d'oubli), mais elle n'est ni partagée avec vos collègues, ni garantie dans le temps : ne comptez que sur le fichier `veille-sports-partage.json` enregistré.
+Un navigateur ne peut pas déposer un fichier téléchargé où que ce soit tout seul (restriction de sécurité du web, pas une limite propre à cette application) : après un clic sur « Enregistrer les données », **placez vous-même le fichier téléchargé dans le dossier `sauvegarde`**, fourni vide à côté d'`index.html` précisément pour ça. Au chargement suivant, sélectionnez ce même fichier. Si ce dossier `sauvegarde` se trouve sur un espace réseau partagé (comme le reste du dossier de l'application), toute l'équipe travaille alors sur le même fichier.
 
-> Une version précédente proposait, en plus, une liaison automatique du dossier partagé sur Chrome/Edge (rechargement/réenregistrement sans clic, sauvegardes horodatées, détection des écritures concurrentes). Elle a été retirée : le comportement différait selon le navigateur et créait un risque de confusion (deux systèmes de partage à comprendre selon le poste). Le fonctionnement manuel, identique partout, est plus simple à expliquer et à vérifier pour l'agent.
+C'est le **seul mécanisme officiel de sauvegarde** : chargez vos données avant de commencer à qualifier des structures, et enregistrez-les en fin de session (ou après un lot de décisions). Le navigateur garde en coulisses une copie de secours de ce qui est affiché à l'écran (pour limiter une perte accidentelle en cas d'oubli), mais elle n'est ni partagée avec vos collègues, ni garantie dans le temps : ne comptez que sur le fichier du dossier `sauvegarde`.
 
-**Limite à connaître** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier partagé (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). D'où l'importance du réflexe charger/enregistrer ci-dessus.
+> Une version précédente proposait, en plus, une liaison automatique du dossier partagé sur Chrome/Edge via l'API File System Access (rechargement/réenregistrement sans clic une fois le fichier choisi une première fois). Elle a été retirée : cette API n'existe pas sur Firefox, et le comportement différait donc selon le navigateur — risque de confusion (deux systèmes de partage à comprendre selon le poste). Le fonctionnement manuel, identique partout, est plus simple à expliquer et à vérifier pour l'agent ; le dossier `sauvegarde` fourni avec l'application vise à en simplifier le geste sans réintroduire cette différence entre navigateurs.
+
+**Limite à connaître** : il n'y a aucun verrou. Si deux agents enregistrent presque simultanément sans avoir rechargé entre-temps, le second fichier déposé remplace le premier dans le dossier `sauvegarde` (même si la fusion interne des décisions, elle, reste correcte tant que chacun recharge avant de modifier). D'où l'importance du réflexe charger/enregistrer ci-dessus.
 
 ### Réinitialisation des données locales
 
@@ -149,7 +151,11 @@ Les boutons **« Charger les données »** et **« Enregistrer les données »**
 
 Les textes visibles (boutons, libellés, messages) ont été raccourcis pour rester directs (« Importer RNA », « Exporter en CSV »...) ; les explications plus longues qui existaient auparavant en permanence à l'écran ont été déplacées dans le bloc Aide, accessible à la demande sans encombrer l'écran principal.
 
-La palette de couleurs a aussi été revue (bleu pour l'action principale, teal pour distinguer les blocs secondaires, rouge/ambre réservés aux niveaux de confiance et aux alertes) pour mieux hiérarchiser visuellement l'écran.
+### Identité graphique et thème clair/sombre
+
+L'interface reprend une identité sportive assumée : accent orange (« départ ») et bleu électrique sur fond neutre, typographies Anton (titres), Manrope (texte courant) et JetBrains Mono (données chiffrées — SIRET, dates, compteurs) chargées depuis Google Fonts. Le bandeau d'accueil utilise une photographie de coureur sous licence gratuite Pexels (© Nick Gosset), intégrée directement dans le fichier de l'application.
+
+Le bouton **« Sombre » / « Clair »** dans l'en-tête bascule entre les deux thèmes. Par défaut, l'application suit la préférence du système d'exploitation (clair ou sombre) au premier chargement ; le choix explicite fait ensuite via ce bouton est mémorisé sur ce poste (`localStorage`), comme n'importe quel réglage d'affichage — ce n'est pas une donnée de veille, et cette préférence n'a donc pas besoin d'être enregistrée dans le fichier partagé.
 
 ## Tests
 
@@ -157,4 +163,8 @@ La palette de couleurs a aussi été revue (bleu pour l'action principale, teal 
 npm test
 ```
 
-La commande utilise uniquement le moteur de test inclus dans Node.js : `npm install` n'est pas nécessaire. Après une modification de `index.template.html`, `styles.css` ou `app.js`, lancer `npm run build` pour régénérer le fichier autonome `index.html`.
+La commande utilise uniquement le moteur de test inclus dans Node.js : `npm install` n'est pas nécessaire. Après une modification de `index.template.html`, `styles.css`, `app.js` ou `sport-keywords.js`, lancer `npm run build` pour régénérer le fichier autonome `index.html`.
+
+### Liste des mots-clés sportifs (`sport-keywords.js`)
+
+La liste des mots-clés utilisée pour repérer un lien avec le sport dans le nom ou l'objet d'une association (import RNA, Journal officiel — voir « Recherche complémentaire par mot-clé ») vit dans son propre fichier, `sport-keywords.js`, séparé de `app.js` pour rester facile à consulter et à modifier. Elle est construite à partir de la liste officielle des fédérations sportives agréées par le ministère des Sports (sports.gouv.fr). Pour l'ajuster : modifier la liste dans ce fichier, lancer `npm test` (le test « finds sports keywords... » vérifie le comportement), puis `npm run build`.

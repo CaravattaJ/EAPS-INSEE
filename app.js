@@ -17,6 +17,7 @@ function activityLabel(code) {
 }
 const STORAGE_KEY = "veille-sports-21-state-v1";
 const AGENT_NAME_KEY = "veille-sports-agent-name";
+const THEME_KEY = "veille-sports-21-theme";
 const SHARED_FILE_NAME = "veille-sports-partage.json";
 const DECISIONS = ["À qualifier", "À contrôler", "Déjà connu", "Pas un lieu de pratique", "Hors périmètre"];
 const REQUEST_DELAY_MS = 900;
@@ -57,12 +58,10 @@ const DEPARTMENTS = [
   { code: "90", label: "Territoire de Belfort" }
 ];
 const DEFAULT_DEPARTMENTS = ["21"];
-const SPORT_KEYWORDS = [
-  "sport", "football", "futsal", "rugby", "handball", "basket", "volley", "judo", "karate", "karaté",
-  "aikido", "aïkido", "boxe", "gymnastique", "fitness", "musculation", "natation", "plongee", "plongée",
-  "canoe", "canoë", "kayak", "aviron", "cyclisme", "vtt", "equitation", "équitation", "randonnee", "randonnée",
-  "escalade", "athletisme", "athlétisme", "triathlon", "tennis", "badminton", "petanque", "pétanque", "escrime"
-];
+// La liste des mots-clés (SPORT_KEYWORDS) vit dans son propre fichier, sport-keywords.js,
+// pour rester facile à consulter et à modifier sans naviguer dans le reste du code — voir ce
+// fichier pour son contenu et la marche à suivre pour la faire évoluer. index.template.html
+// (et build.mjs) l'intègrent avant app.js, exactement comme app.js l'est déjà.
 
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -510,8 +509,14 @@ function sortItems(items, column, direction = "asc") {
   });
 }
 
+// Nom + commune plutôt que le nom seul : beaucoup de structures ont un nom générique
+// (« Les Amis du Sport »...) que Google ne peut pas désambiguïser sans la localité.
+function googleSearchUrl(item) {
+  return `https://www.google.com/search?q=${encodeURIComponent(`${item.name} ${item.commune}`.trim())}`;
+}
+
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE } = options;
+  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
   filtered = sortItems(filtered, sortColumn, sortDirection);
@@ -526,7 +531,7 @@ function render(state, query = "", options = {}) {
   const staleSyncWarning = document.querySelector("#stale-sync-warning");
   if (staleSyncWarning) staleSyncWarning.hidden = daysSince(state.lastSync) <= STALE_SYNC_DAYS;
   const staleRnaWarning = document.querySelector("#stale-rna-warning");
-  if (staleRnaWarning) staleRnaWarning.hidden = daysSince(state.lastRnaImport) <= STALE_SYNC_DAYS;
+  if (staleRnaWarning) staleRnaWarning.hidden = rnaWarningDismissed || daysSince(state.lastRnaImport) <= STALE_SYNC_DAYS;
   document.querySelectorAll(".sort-button").forEach(button => {
     button.classList.toggle("sort-active", button.dataset.sort === sortColumn);
     button.dataset.sortDirection = button.dataset.sort === sortColumn ? sortDirection : "";
@@ -539,11 +544,11 @@ function render(state, query = "", options = {}) {
   if (nextButton) nextButton.disabled = currentPage >= totalPages;
   document.querySelector("#results-body").innerHTML = pageItems.map(item => `
     <tr>
+      <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><span class="structure-name">${escapeHtml(item.name)}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
-      <td>${escapeHtml(item.activityLabel || item.activity)}</td>
-      <td>${item.object ? escapeHtml(item.object) : '<span class="identifier">—</span>'}</td>
+      <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
       <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
     </tr>`).join("");
@@ -584,9 +589,37 @@ function readSelectedDepartments(checkboxes) {
   return values.length ? values : DEFAULT_DEPARTMENTS;
 }
 
-const PRIORITY_MAP_COLORS = { "Élevée": "#b42318", "Moyenne": "#9a6700", "Faible": "#667085" };
+const PRIORITY_MAP_COLORS = { "Élevée": "#ff5a1f", "Moyenne": "#c98a00", "Faible": "#8a93a3" };
+
+// Préférence d'affichage uniquement (pas une donnée de veille) : mémorisée sur ce poste
+// indépendamment du fichier partagé, comme le ferait n'importe quel réglage d'interface.
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const label = document.querySelector("#theme-toggle-label");
+  const icon = document.querySelector("#theme-toggle .icon");
+  if (label) label.textContent = theme === "dark" ? "Clair" : "Sombre";
+  if (icon) icon.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function initialTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "dark" || stored === "light") return stored;
+  } catch { /* stockage indisponible : on retombe sur la préférence système */ }
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 if (typeof document !== "undefined") {
+  applyTheme(initialTheme());
+  const themeToggle = document.querySelector("#theme-toggle");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      applyTheme(next);
+      try { localStorage.setItem(THEME_KEY, next); } catch { /* préférence perdue au prochain chargement, sans conséquence */ }
+    });
+  }
+
   const state = loadState();
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");
@@ -598,6 +631,13 @@ if (typeof document !== "undefined") {
   let sortColumn = null;
   let sortDirection = "asc";
   let page = 1;
+  // Sélection manuelle de structures à isoler sur la carte (voir renderNow / updateMapSelectionNote) :
+  // un ensemble vide signifie "aucune sélection", donc la carte affiche tous les résultats filtrés.
+  let selectedKeys = new Set();
+  let lastMapItems = [];
+  // Fermeture manuelle de l'alerte RNA (voir bouton #dismiss-rna-warning) : ne persiste pas
+  // d'une session à l'autre, seulement le temps de ne pas re-harceler l'agent qui l'a lue.
+  let rnaWarningDismissed = false;
 
   let map = null;
   let markerLayer = null;
@@ -635,10 +675,38 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function mapItemsForSelection() {
+    return selectedKeys.size ? lastMapItems.filter(item => selectedKeys.has(itemKey(item))) : lastMapItems;
+  }
+
+  // Recentre la carte sur les structures données (par ex. les résultats d'une recherche),
+  // plutôt que de la laisser sur sa vue par défaut. Appelé ponctuellement (pas à chaque
+  // rendu) pour éviter de faire sauter la carte pendant un simple filtre ou tri.
+  function focusMapOnItems(items) {
+    if (!map) return;
+    const coords = items.filter(item => typeof item.lat === "number" && typeof item.lon === "number").map(item => [item.lat, item.lon]);
+    if (!coords.length) return;
+    map.flyToBounds(coords, { padding: [28, 28], maxZoom: 12 });
+  }
+
+  function updateMapSelectionNote() {
+    const note = document.querySelector("#map-selection-note");
+    if (!note) return;
+    if (selectedKeys.size) {
+      note.hidden = false;
+      note.innerHTML = `${selectedKeys.size} structure(s) sélectionnée(s) affichée(s) — <button type="button" id="clear-map-selection" class="link-button">Tout afficher</button>`;
+    } else {
+      note.hidden = true;
+      note.innerHTML = "";
+    }
+  }
+
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
     page = currentPage;
-    updateMap(mapItems);
+    lastMapItems = mapItems;
+    updateMap(mapItemsForSelection());
+    updateMapSelectionNote();
   };
 
   const updateDepartmentSummary = () => {
@@ -654,6 +722,14 @@ if (typeof document !== "undefined") {
   if (departmentDropdown) {
     document.addEventListener("click", event => {
       if (departmentDropdown.open && !departmentDropdown.contains(event.target)) departmentDropdown.open = false;
+    });
+  }
+
+  const dismissRnaWarning = document.querySelector("#dismiss-rna-warning");
+  if (dismissRnaWarning) {
+    dismissRnaWarning.addEventListener("click", () => {
+      rnaWarningDismissed = true;
+      document.querySelector("#stale-rna-warning").hidden = true;
     });
   }
 
@@ -755,6 +831,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
+      focusMapOnItems([...keywordBatch, ...batches.flat(), ...joafeItems]);
       let summary = `${state.items.length} structure(s) trouvée(s) depuis le ${formatDate(sinceInput.value)} en ${departmentsLabel(departments)} (dont ${joafeItems.length} au Journal officiel).`;
       if (incompleteCount > 0) summary += " Attention, liste peut-être incomplète (beaucoup de résultats sur au moins une source).";
       showMessage(summary);
@@ -786,6 +863,7 @@ if (typeof document !== "undefined") {
       saveState(state);
       page = 1;
       renderNow();
+      focusMapOnItems(imported);
       showMessage(`${imported.length} association(s) candidate(s) trouvée(s) dans le fichier RNA.`);
     } catch (error) {
       showMessage(`Import RNA impossible : ${error.message}.`, true);
@@ -796,6 +874,15 @@ if (typeof document !== "undefined") {
   document.querySelector("#export-button").addEventListener("click", () => state.items.length ? exportCsv(state.items) : showMessage("Aucun résultat à exporter.", true));
 
   document.querySelector("#results-body").addEventListener("change", async event => {
+    if (event.target.matches(".map-select-checkbox")) {
+      const key = event.target.dataset.key;
+      if (event.target.checked) selectedKeys.add(key); else selectedKeys.delete(key);
+      // Ne rafraîchit que la carte : reconstruire le tableau perdrait l'état des autres
+      // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
+      updateMap(mapItemsForSelection());
+      updateMapSelectionNote();
+      return;
+    }
     if (!event.target.matches(".decision-select")) return;
     const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
     if (!item) return;
@@ -804,6 +891,14 @@ if (typeof document !== "undefined") {
     item.decidedAt = new Date().toISOString();
     saveState(state);
     renderNow();
+  });
+
+  document.querySelector("#map-column").addEventListener("click", event => {
+    if (!event.target.matches("#clear-map-selection")) return;
+    selectedKeys.clear();
+    document.querySelectorAll(".map-select-checkbox").forEach(checkbox => { checkbox.checked = false; });
+    updateMap(mapItemsForSelection());
+    updateMapSelectionNote();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
@@ -848,6 +943,7 @@ if (typeof document !== "undefined") {
       state.lastSearchSince = null;
       state.lastRnaImport = null;
       saveState(state);
+      selectedKeys.clear();
       page = 1;
       renderNow();
       showMessage("Données locales réinitialisées. Rechargez le fichier partagé si besoin pour les récupérer.");
