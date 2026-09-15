@@ -262,17 +262,27 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
 .table-wrap { overflow-x: auto; border-top: 1px solid var(--border); }
 table { width: 100%; border-collapse: collapse; color: var(--ink); table-layout: fixed; }
 th, td { overflow-wrap: anywhere; }
-th { padding: 0; background: var(--surface-sunken); color: var(--muted); font-size: .74rem; letter-spacing: .045em; text-align: left; text-transform: uppercase; }
+/* white-space:nowrap + ellipsis plutôt que le retour à la ligne par défaut : dans une colonne
+   fixe étroite (table-layout:fixed), un intitulé d'un seul mot comme "CONFIANCE" n'a aucun
+   point de coupure naturel et peut se retrouver scindé au milieu, parfois une seule lettre
+   isolée sur sa propre ligne. Sans lettres majuscules espacées (letter-spacing), un intitulé
+   court tient de toute façon dans la colonne la plus étroite ; l'ellipse ne sert que de
+   filet de sécurité. */
+th {
+  padding: 0; background: var(--surface-sunken); color: var(--muted); font-size: .7rem;
+  text-align: left; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .sort-button {
   width: 100%;
-  padding: 12px 10px;
+  padding: 12px 8px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  letter-spacing: inherit;
   text-transform: inherit;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sort-button:hover { color: var(--ink); }
 .sort-button.sort-active { color: var(--volt); }
