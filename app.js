@@ -550,32 +550,13 @@ function googleSearchUrl(item) {
 // un SIRET échoue toujours à l'algorithme de vérification du SIREN (page « Nous n'avons pas
 // retrouvé ce numéro... »). On dérive donc le SIREN des 9 premiers chiffres du SIRET quand le
 // champ siren n'est pas renseigné directement (cas des associations du Journal officiel, qui
-// n'exposent qu'un SIRET). N'appeler cette fonction que si siren ou siret existe : voir
-// officialSourceUrl ci-dessous pour le cas des associations identifiées seulement par un RNA,
-// que l'Annuaire ne référence pas du tout (sa propre FAQ le confirme).
+// n'exposent qu'un SIRET). N'appeler cette fonction que si siren ou siret existe : l'Annuaire ne
+// référence pas du tout les associations identifiées seulement par un RNA (sa propre FAQ le
+// confirme), et le repli testé vers le Journal officiel s'est révélé peu utile en pratique
+// (retiré : voir historique de ce fichier).
 function annuaireEntreprisesUrl(item) {
   const identifier = item.siren || item.siret.slice(0, 9);
   return `https://annuaire-entreprises.data.gouv.fr/entreprise/${encodeURIComponent(identifier)}`;
-}
-
-// Repli pour une association identifiée seulement par son numéro RNA (pas de SIRET/SIREN) :
-// l'Annuaire des Entreprises ne référence que les structures ayant un SIREN, un lien vers lui
-// échoue donc toujours pour elles (constaté : la page renvoie une erreur de vérification SIREN
-// même pour un RNA valide). On renvoie à la place vers l'annonce d'origine, dans le même jeu de
-// données Journal officiel des associations que celui interrogé par l'application (voir
-// fetchJoafe), filtrée sur ce numéro RNA.
-function journalOfficielAssociationUrl(item) {
-  const params = new URLSearchParams({ "refine.numero_rna": item.rna });
-  return `https://journal-officiel-datadila.opendatasoft.com/explore/dataset/jo_associations/table/?${params}`;
-}
-
-// Choisit la bonne destination selon ce que la structure possède réellement, plutôt que
-// d'envoyer systématiquement vers l'Annuaire des Entreprises (voir les deux fonctions
-// ci-dessus). Retourne null si la structure n'a ni SIRET/SIREN ni RNA (pas de lien à afficher).
-function officialSourceUrl(item) {
-  if (item.siren || item.siret) return { url: annuaireEntreprisesUrl(item), label: "Fiche officielle (Annuaire des Entreprises)" };
-  if (item.rna) return { url: journalOfficielAssociationUrl(item), label: "Annonce officielle (Journal officiel des associations)" };
-  return null;
 }
 
 function render(state, query = "", options = {}) {
@@ -607,12 +588,12 @@ function render(state, query = "", options = {}) {
   const nextButton = document.querySelector("#next-page-button");
   if (nextButton) nextButton.disabled = currentPage >= totalPages;
   document.querySelector("#results-body").innerHTML = pageItems.map(item => {
-    const official = officialSourceUrl(item);
+    const hasOfficialLink = Boolean(item.siren || item.siret);
     return `
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><span class="structure-name-row">${official ? `<a class="annuaire-link" href="${official.url}" target="_blank" rel="noopener noreferrer" aria-label="${official.label} de « ${escapeHtml(item.name)} » (nouvel onglet)" title="${official.label} (nouvel onglet)">🏛</a>` : '<span class="annuaire-link-spacer" aria-hidden="true"></span>'}<a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a></span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name-row">${hasOfficialLink ? `<a class="annuaire-link" href="${annuaireEntreprisesUrl(item)}" target="_blank" rel="noopener noreferrer" aria-label="Fiche officielle de « ${escapeHtml(item.name)} » sur l'Annuaire des Entreprises (nouvel onglet)" title="Fiche officielle (Annuaire des Entreprises, nouvel onglet)">🏛</a>` : '<span class="annuaire-link-spacer" aria-hidden="true"></span>'}<a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a></span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
@@ -648,7 +629,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, annuaireEntreprisesUrl, journalOfficielAssociationUrl, officialSourceUrl, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, annuaireEntreprisesUrl, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
 });
 
 function readSelectedDepartments(checkboxes) {
