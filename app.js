@@ -545,10 +545,15 @@ function googleSearchUrl(item) {
 
 // Fiche officielle (adresse, dirigeants, statut...) plutôt que la recherche Google : les deux
 // sont complémentaires, l'une donnant le déclaratif officiel, l'autre pouvant révéler un écart
-// avec l'activité réelle (site web, réseaux sociaux). L'URL accepte indifféremment SIRET, SIREN
-// ou numéro RNA sans slug de nom.
+// avec l'activité réelle (site web, réseaux sociaux). L'URL /entreprise/ attend un SIREN (9
+// chiffres) ou un numéro RNA, jamais un SIRET (14 chiffres, SIREN + 5 chiffres d'établissement) :
+// envoyé tel quel, un SIRET échoue toujours à l'algorithme de vérification du SIREN (page « Nous
+// n'avons pas retrouvé ce numéro... »). On dérive donc le SIREN des 9 premiers chiffres du SIRET
+// quand le champ siren n'est pas renseigné directement (cas des associations du Journal officiel,
+// qui n'exposent qu'un SIRET).
 function annuaireEntreprisesUrl(item) {
-  return `https://annuaire-entreprises.data.gouv.fr/entreprise/${encodeURIComponent(item.siret || item.siren || item.rna)}`;
+  const identifier = item.siren || item.siret?.slice(0, 9) || item.rna;
+  return `https://annuaire-entreprises.data.gouv.fr/entreprise/${encodeURIComponent(identifier)}`;
 }
 
 function render(state, query = "", options = {}) {
@@ -618,7 +623,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, annuaireEntreprisesUrl, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
 });
 
 function readSelectedDepartments(checkboxes) {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "./sport-keywords.js";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, annuaireEntreprisesUrl, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -154,6 +154,25 @@ test("routeDistance returns null when the API responds without usable distance/d
   const fakeFetch = async () => ({ ok: true, json: async () => ({ message: "erreur" }) });
   const points = [{ lat: 47.32, lon: 5.04 }, { lat: 47.02, lon: 4.83 }];
   assert.equal(await routeDistance(points, fakeFetch), null);
+});
+
+// L'Annuaire des Entreprises attend un SIREN (9 chiffres) ou un RNA sur /entreprise/, jamais un
+// SIRET (14 chiffres) : envoyé tel quel, un SIRET échoue systématiquement à l'algorithme de
+// vérification du SIREN (page d'erreur du site). Voir annuaireEntreprisesUrl.
+test("annuaireEntreprisesUrl derives the SIREN from the SIRET when siren isn't set directly", () => {
+  // Cas des associations du Journal officiel : siret renseigné, siren toujours vide (normalizeJoafeRecord).
+  const url = annuaireEntreprisesUrl({ siret: "77821495700012", siren: "", rna: "" });
+  assert.equal(url, "https://annuaire-entreprises.data.gouv.fr/entreprise/778214957");
+});
+
+test("annuaireEntreprisesUrl prefers the explicit siren field when present", () => {
+  const url = annuaireEntreprisesUrl({ siret: "77821495700012", siren: "778214957", rna: "" });
+  assert.equal(url, "https://annuaire-entreprises.data.gouv.fr/entreprise/778214957");
+});
+
+test("annuaireEntreprisesUrl falls back to the RNA number for associations without SIRET/SIREN", () => {
+  const url = annuaireEntreprisesUrl({ siret: "", siren: "", rna: "W211234567" });
+  assert.equal(url, "https://annuaire-entreprises.data.gouv.fr/entreprise/W211234567");
 });
 
 test("normalizes an association returned by the API", () => {
