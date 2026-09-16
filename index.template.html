@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Repérage local des nouveaux établissements sportifs de Bourgogne-Franche-Comté.">
-  <title>Veille Sports BFC</title>
+  <title>VigieSport</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%23ff5a1f%22/%3E%3Cg%20stroke%3D%22white%22%20stroke-width%3D%224.5%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M29%2015%20A18%2018%200%201%200%2049%2035%22/%3E%3Cpath%20d%3D%22M35%2014%20A21%2021%200%200%201%2050%2029%22/%3E%3Cpath%20d%3D%22M35%2022%20A13%2013%200%200%201%2042%2029%22/%3E%3C/g%3E%3Ccircle%20cx%3D%2231%22%20cy%3D%2233%22%20r%3D%224.5%22%20fill%3D%22white%22/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
@@ -13,11 +14,18 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand-mark" aria-hidden="true">BFC</div>
-    <div>
-      <p class="eyebrow">Service de recherche</p>
-      <h1>Veille Sports BFC</h1>
-    </div>
+    <a class="vigiesport-brand" href="./" aria-label="VigieSport — Accueil">
+      <svg viewBox="0 0 64 64" width="36" height="36" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#ff5a1f"/>
+        <g stroke="white" stroke-width="4.5" fill="none">
+          <path d="M29 15 A18 18 0 1 0 49 35"/>
+          <path d="M35 14 A21 21 0 0 1 50 29"/>
+          <path d="M35 22 A13 13 0 0 1 42 29"/>
+        </g>
+        <circle cx="31" cy="33" r="4.5" fill="white"/>
+      </svg>
+      <h1>VigieSport</h1>
+    </a>
     <div class="topbar-actions">
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Basculer entre thème clair et thème sombre">
         <span class="icon" aria-hidden="true">🌙</span><span id="theme-toggle-label">Sombre</span>
@@ -206,7 +214,7 @@
   </main>
 
   <footer>
-    <span>Veille Sports BFC</span>
+    <span>VigieSport</span>
     <span>Conception sdjes 21</span>
     <span>Bannière : <a href="https://www.magnific.com" target="_blank" rel="noopener noreferrer">Designed by Magnific</a></span>
   </footer>
