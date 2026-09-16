@@ -332,13 +332,18 @@ tbody tr:hover { background: var(--surface-sunken); }
    retenu plutôt qu'un clic sur la ligne entière, pour ne pas gêner la sélection de texte
    (copier un SIRET) ni la navigation au clavier. */
 tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
-/* .structure-name-row regroupe le nom et le lien annuaire sur une même ligne : .structure-name
-   ne peut pas rester display:block (ça forcerait l'icône à la ligne suivante), le retour à la
-   ligne avant .identifier est donc porté par ce conteneur plutôt que par le lien lui-même. */
-.structure-name-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 3px; }
+/* .structure-name-row regroupe l'icône et le nom sur une même ligne : .structure-name ne peut pas
+   rester display:block (ça forcerait l'icône à la ligne suivante), le retour à la ligne avant
+   .identifier est donc porté par ce conteneur plutôt que par le lien lui-même. L'icône est placée
+   AVANT le nom (pas après) et sa largeur (18px, .annuaire-link-spacer quand elle est absente) est
+   fixe : le nom démarre ainsi toujours à la même position horizontale d'une ligne à l'autre, quelle
+   que soit la longueur du titre — sinon une icône collée après un nom de longueur variable
+   « saute » d'une ligne à l'autre dans le tableau. */
+.structure-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
 .structure-name { color: var(--ink); font-weight: 750; text-decoration: none; }
 .structure-name:hover { color: var(--electric); text-decoration: underline; }
-.annuaire-link { flex-shrink: 0; font-size: .82rem; line-height: 1; text-decoration: none; opacity: .75; }
+.annuaire-link, .annuaire-link-spacer { flex-shrink: 0; width: 18px; }
+.annuaire-link { font-size: .82rem; line-height: 1; text-decoration: none; opacity: .75; text-align: center; }
 .annuaire-link:hover { opacity: 1; }
 .identifier { color: var(--muted); font-size: .76rem; font-family: var(--font-mono); }
 .priority { display: inline-block; padding: 5px 8px; border-radius: 5px; font-size: .74rem; font-weight: 800; }
@@ -1359,7 +1364,7 @@ function render(state, query = "", options = {}) {
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><span class="structure-name-row"><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a>${official ? `<a class="annuaire-link" href="${official.url}" target="_blank" rel="noopener noreferrer" aria-label="${official.label} de « ${escapeHtml(item.name)} » (nouvel onglet)" title="${official.label} (nouvel onglet)">🏛</a>` : ""}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name-row">${official ? `<a class="annuaire-link" href="${official.url}" target="_blank" rel="noopener noreferrer" aria-label="${official.label} de « ${escapeHtml(item.name)} » (nouvel onglet)" title="${official.label} (nouvel onglet)">🏛</a>` : '<span class="annuaire-link-spacer" aria-hidden="true"></span>'}<a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a></span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
