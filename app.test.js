@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "./sport-keywords.js";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, annuaireEntreprisesUrl, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, annuaireEntreprisesUrl, journalOfficielAssociationUrl, officialSourceUrl, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -156,9 +156,9 @@ test("routeDistance returns null when the API responds without usable distance/d
   assert.equal(await routeDistance(points, fakeFetch), null);
 });
 
-// L'Annuaire des Entreprises attend un SIREN (9 chiffres) ou un RNA sur /entreprise/, jamais un
-// SIRET (14 chiffres) : envoyé tel quel, un SIRET échoue systématiquement à l'algorithme de
-// vérification du SIREN (page d'erreur du site). Voir annuaireEntreprisesUrl.
+// L'Annuaire des Entreprises attend un SIREN (9 chiffres) sur /entreprise/, jamais un SIRET (14
+// chiffres) : envoyé tel quel, un SIRET échoue systématiquement à l'algorithme de vérification du
+// SIREN (page d'erreur du site). Voir annuaireEntreprisesUrl.
 test("annuaireEntreprisesUrl derives the SIREN from the SIRET when siren isn't set directly", () => {
   // Cas des associations du Journal officiel : siret renseigné, siren toujours vide (normalizeJoafeRecord).
   const url = annuaireEntreprisesUrl({ siret: "77821495700012", siren: "", rna: "" });
@@ -170,9 +170,29 @@ test("annuaireEntreprisesUrl prefers the explicit siren field when present", () 
   assert.equal(url, "https://annuaire-entreprises.data.gouv.fr/entreprise/778214957");
 });
 
-test("annuaireEntreprisesUrl falls back to the RNA number for associations without SIRET/SIREN", () => {
-  const url = annuaireEntreprisesUrl({ siret: "", siren: "", rna: "W211234567" });
-  assert.equal(url, "https://annuaire-entreprises.data.gouv.fr/entreprise/W211234567");
+// L'Annuaire des Entreprises ne référence que les structures ayant un SIREN (sa propre FAQ le
+// confirme) : un lien vers lui échoue toujours pour une association identifiée seulement par un
+// RNA — constaté avec un vrai numéro RNA valide (page d'erreur de vérification SIREN). Le repli
+// pointe donc vers l'annonce d'origine au Journal officiel des associations plutôt que l'Annuaire.
+test("journalOfficielAssociationUrl links to the JOAFE record filtered by RNA number", () => {
+  const url = journalOfficielAssociationUrl({ rna: "W212015970" });
+  assert.equal(url, "https://journal-officiel-datadila.opendatasoft.com/explore/dataset/jo_associations/table/?refine.numero_rna=W212015970");
+});
+
+test("officialSourceUrl prefers the Annuaire des Entreprises when a SIRET or SIREN exists", () => {
+  const official = officialSourceUrl({ siret: "77821495700012", siren: "", rna: "" });
+  assert.equal(official.url, "https://annuaire-entreprises.data.gouv.fr/entreprise/778214957");
+  assert.match(official.label, /Annuaire des Entreprises/);
+});
+
+test("officialSourceUrl falls back to the Journal officiel for an RNA-only association", () => {
+  const official = officialSourceUrl({ siret: "", siren: "", rna: "W212015970" });
+  assert.equal(official.url, "https://journal-officiel-datadila.opendatasoft.com/explore/dataset/jo_associations/table/?refine.numero_rna=W212015970");
+  assert.match(official.label, /Journal officiel/);
+});
+
+test("officialSourceUrl returns null when the structure has no SIRET, SIREN or RNA", () => {
+  assert.equal(officialSourceUrl({ siret: "", siren: "", rna: "" }), null);
 });
 
 test("normalizes an association returned by the API", () => {
