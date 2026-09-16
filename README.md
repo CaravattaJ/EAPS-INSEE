@@ -1,4 +1,4 @@
-# Veille Sports BFC
+# VigieSport
 
 Prototype sans installation et sans dépendance npm pour repérer les établissements sportifs récemment créés en Bourgogne-Franche-Comté.
 
