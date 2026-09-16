@@ -65,15 +65,21 @@ test("itemKey uses SIRET, falling back to a namespaced RNA number", () => {
 test("mergeDecision keeps whichever side has the most recent decidedAt", () => {
   const older = { decision: "À qualifier", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z" };
   const newer = { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" };
-  assert.deepEqual(mergeDecision(older, newer), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" });
-  assert.deepEqual(mergeDecision(newer, older), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" });
+  assert.deepEqual(mergeDecision(older, newer), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z", note: "" });
+  assert.deepEqual(mergeDecision(newer, older), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z", note: "" });
 });
 
 test("mergeDecision treats a never-decided item as older than any real decision", () => {
   const undecided = { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
   const decided = { decision: "Déjà connu", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z" };
-  assert.deepEqual(mergeDecision(undecided, decided), decided);
-  assert.deepEqual(mergeDecision(decided, undecided), decided);
+  assert.deepEqual(mergeDecision(undecided, decided), { ...decided, note: "" });
+  assert.deepEqual(mergeDecision(decided, undecided), { ...decided, note: "" });
+});
+
+test("mergeDecision keeps a note even when the winning side never had one", () => {
+  const older = { decision: "À qualifier", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z", note: "RDV pris le 12/09" };
+  const newer = { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" };
+  assert.equal(mergeDecision(older, newer).note, "RDV pris le 12/09");
 });
 
 test("mergeItemLists refreshes factual data from newItems but never loses a prior decision", () => {

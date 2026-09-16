@@ -261,6 +261,16 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
   color: var(--ink);
 }
 .search-field input { width: min(280px, 35vw); padding: 0 13px; }
+.decision-filter-field select {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: .86rem;
+  font-weight: 650;
+}
 .hide-low-field { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .86rem; font-weight: 650; white-space: nowrap; }
 /* table-layout:fixed force les colonnes à respecter les largeurs du colgroup (voir
    index.template.html) plutôt que de s'étirer selon leur contenu (ex. le <select> de
@@ -309,8 +319,14 @@ tbody tr:hover { background: var(--surface-sunken); }
    retenu plutôt qu'un clic sur la ligne entière, pour ne pas gêner la sélection de texte
    (copier un SIRET) ni la navigation au clavier. */
 tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
-.structure-name { display: block; margin-bottom: 3px; color: var(--ink); font-weight: 750; text-decoration: none; }
+/* .structure-name-row regroupe le nom et le lien annuaire sur une même ligne : .structure-name
+   ne peut pas rester display:block (ça forcerait l'icône à la ligne suivante), le retour à la
+   ligne avant .identifier est donc porté par ce conteneur plutôt que par le lien lui-même. */
+.structure-name-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 3px; }
+.structure-name { color: var(--ink); font-weight: 750; text-decoration: none; }
 .structure-name:hover { color: var(--electric); text-decoration: underline; }
+.annuaire-link { flex-shrink: 0; font-size: .82rem; line-height: 1; text-decoration: none; opacity: .75; }
+.annuaire-link:hover { opacity: 1; }
 .identifier { color: var(--muted); font-size: .76rem; font-family: var(--font-mono); }
 .priority { display: inline-block; padding: 5px 8px; border-radius: 5px; font-size: .74rem; font-weight: 800; }
 .priority.high { background: var(--pill-high-bg); color: var(--pill-high-ink); }
@@ -319,6 +335,8 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
 .duplicate-flag { display: block; margin-top: 3px; color: var(--pill-mid-ink); font-size: .78rem; font-weight: 700; }
 .future-flag { display: inline-block; margin-top: 3px; color: var(--pill-mid-ink); font-size: .78rem; font-weight: 700; }
 .decision-select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.note-input { display: block; width: 100%; margin-top: 5px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--ink); font-size: .78rem; }
+.note-input::placeholder { color: var(--muted); }
 .empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
 .empty-state h3 { margin: 8px 0 6px; color: var(--ink); }
 .empty-state p { margin: 0; }

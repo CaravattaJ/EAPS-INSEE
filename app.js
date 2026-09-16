@@ -103,7 +103,7 @@ function toCoordinate(value) {
 }
 
 function defaultDecisionFields() {
-  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
+  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "", note: "" };
 }
 
 function itemKey(item) {
@@ -118,7 +118,7 @@ function mergeDecision(oldItem, newItem) {
   const oldAt = oldItem?.decidedAt || "";
   const newAt = newItem?.decidedAt || "";
   const winner = oldAt > newAt ? oldItem : newItem;
-  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "" };
+  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "", note: winner.note ?? oldItem?.note ?? newItem?.note ?? "" };
 }
 
 function mergeItemLists(oldItems, newItems) {
@@ -515,10 +515,19 @@ function googleSearchUrl(item) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${item.name} ${item.commune}`.trim())}`;
 }
 
+// Fiche officielle (adresse, dirigeants, statut...) plutôt que la recherche Google : les deux
+// sont complémentaires, l'une donnant le déclaratif officiel, l'autre pouvant révéler un écart
+// avec l'activité réelle (site web, réseaux sociaux). L'URL accepte indifféremment SIRET, SIREN
+// ou numéro RNA sans slug de nom.
+function annuaireEntreprisesUrl(item) {
+  return `https://annuaire-entreprises.data.gouv.fr/entreprise/${encodeURIComponent(item.siret || item.siren || item.rna)}`;
+}
+
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
+  const { hideLow = false, decisionFilter = "", sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
+  if (decisionFilter) filtered = filtered.filter(item => item.decision === decisionFilter);
   filtered = sortItems(filtered, sortColumn, sortDirection);
   const { pageItems, currentPage, totalPages, total } = paginate(filtered, page, pageSize);
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
@@ -546,11 +555,11 @@ function render(state, query = "", options = {}) {
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name-row"><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a>${item.siret || item.siren || item.rna ? `<a class="annuaire-link" href="${annuaireEntreprisesUrl(item)}" target="_blank" rel="noopener noreferrer" aria-label="Fiche officielle de « ${escapeHtml(item.name)} » sur l'Annuaire des Entreprises (nouvel onglet)" title="Fiche officielle (Annuaire des Entreprises, nouvel onglet)">🏛</a>` : ""}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
-      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
+      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}<input type="text" class="note-input" data-key="${escapeHtml(itemKey(item))}" placeholder="Note (facultatif)" value="${escapeHtml(item.note || "")}" aria-label="Note pour ${escapeHtml(item.name)}"></td>
     </tr>`).join("");
   return { currentPage, mapItems: filtered };
 }
@@ -568,7 +577,7 @@ function timestampForFilename(date = new Date()) {
 }
 
 function exportCsv(items) {
-  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || ""])];
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le", "Note"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || "", item.note || ""])];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -624,6 +633,10 @@ if (typeof document !== "undefined") {
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");
   const hideLowInput = document.querySelector("#hide-low-input");
+  const decisionFilterInput = document.querySelector("#decision-filter");
+  if (decisionFilterInput) {
+    decisionFilterInput.innerHTML = `<option value="">Toutes les décisions</option>${DECISIONS.map(decision => `<option>${escapeHtml(decision)}</option>`).join("")}`;
+  }
   const departmentCheckboxes = document.querySelectorAll(".department-checkbox");
   const departmentSummary = document.querySelector("#department-summary");
   const prevPageButton = document.querySelector("#prev-page-button");
@@ -702,7 +715,7 @@ if (typeof document !== "undefined") {
   }
 
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, decisionFilter: decisionFilterInput ? decisionFilterInput.value : "", sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
     page = currentPage;
     lastMapItems = mapItems;
     updateMap(mapItemsForSelection());
@@ -737,6 +750,7 @@ if (typeof document !== "undefined") {
   renderNow();
 
   hideLowInput.addEventListener("change", () => { page = 1; renderNow(); });
+  if (decisionFilterInput) decisionFilterInput.addEventListener("change", () => { page = 1; renderNow(); });
   filterInput.addEventListener("input", () => { page = 1; renderNow(); });
   departmentCheckboxes.forEach(checkbox => {
     checkbox.addEventListener("change", () => {
@@ -881,6 +895,13 @@ if (typeof document !== "undefined") {
       // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
       updateMap(mapItemsForSelection());
       updateMapSelectionNote();
+      return;
+    }
+    if (event.target.matches(".note-input")) {
+      const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
+      if (!item) return;
+      item.note = event.target.value;
+      saveState(state);
       return;
     }
     if (!event.target.matches(".decision-select")) return;

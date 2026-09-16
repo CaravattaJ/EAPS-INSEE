@@ -274,6 +274,16 @@ h2 { margin: 7px 0 0; font-size: clamp(1.3rem, 3vw, 1.7rem); color: var(--ink); 
   color: var(--ink);
 }
 .search-field input { width: min(280px, 35vw); padding: 0 13px; }
+.decision-filter-field select {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: .86rem;
+  font-weight: 650;
+}
 .hide-low-field { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .86rem; font-weight: 650; white-space: nowrap; }
 /* table-layout:fixed force les colonnes à respecter les largeurs du colgroup (voir
    index.template.html) plutôt que de s'étirer selon leur contenu (ex. le <select> de
@@ -322,8 +332,14 @@ tbody tr:hover { background: var(--surface-sunken); }
    retenu plutôt qu'un clic sur la ligne entière, pour ne pas gêner la sélection de texte
    (copier un SIRET) ni la navigation au clavier. */
 tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
-.structure-name { display: block; margin-bottom: 3px; color: var(--ink); font-weight: 750; text-decoration: none; }
+/* .structure-name-row regroupe le nom et le lien annuaire sur une même ligne : .structure-name
+   ne peut pas rester display:block (ça forcerait l'icône à la ligne suivante), le retour à la
+   ligne avant .identifier est donc porté par ce conteneur plutôt que par le lien lui-même. */
+.structure-name-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 3px; }
+.structure-name { color: var(--ink); font-weight: 750; text-decoration: none; }
 .structure-name:hover { color: var(--electric); text-decoration: underline; }
+.annuaire-link { flex-shrink: 0; font-size: .82rem; line-height: 1; text-decoration: none; opacity: .75; }
+.annuaire-link:hover { opacity: 1; }
 .identifier { color: var(--muted); font-size: .76rem; font-family: var(--font-mono); }
 .priority { display: inline-block; padding: 5px 8px; border-radius: 5px; font-size: .74rem; font-weight: 800; }
 .priority.high { background: var(--pill-high-bg); color: var(--pill-high-ink); }
@@ -332,6 +348,8 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
 .duplicate-flag { display: block; margin-top: 3px; color: var(--pill-mid-ink); font-size: .78rem; font-weight: 700; }
 .future-flag { display: inline-block; margin-top: 3px; color: var(--pill-mid-ink); font-size: .78rem; font-weight: 700; }
 .decision-select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.note-input { display: block; width: 100%; margin-top: 5px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--ink); font-size: .78rem; }
+.note-input::placeholder { color: var(--muted); }
 .empty-state { padding: 50px 20px 58px; text-align: center; color: var(--muted); }
 .empty-state h3 { margin: 8px 0 6px; color: var(--ink); }
 .empty-state p { margin: 0; }
@@ -572,7 +590,10 @@ footer a:hover { color: var(--electric); }
           </ul>
         </div>
         <ul class="help">
-          <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour vérifier rapidement de quoi il s'agit avant de qualifier.</li>
+          <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour repérer un écart entre le déclaratif officiel et l'activité réellement visible (site, réseaux sociaux...).</li>
+          <li>L'icône 🏛 à côté du nom ouvre la fiche officielle de la structure sur l'Annuaire des Entreprises (adresse, dirigeants, statut) — complémentaire à la recherche Google, pas un remplacement.</li>
+          <li>Utilisez le filtre « Toutes les décisions » au-dessus du tableau pour n'afficher que les structures encore à qualifier, ou au contraire un statut précis déjà traité.</li>
+          <li>Un champ de note libre est disponible sous chaque décision, pour garder un contexte (rendez-vous pris, doute à vérifier...) visible par toute l'équipe.</li>
           <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant les mots-clés lié au sport voir fichier (sports-keywords.js).</li>
           <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
@@ -593,6 +614,10 @@ footer a:hover { color: var(--electric); }
           <label class="search-field">
             <span class="sr-only">Filtrer la liste</span>
             <input id="filter-input" type="search" placeholder="Nom, commune, SIRET…">
+          </label>
+          <label class="decision-filter-field">
+            <span class="sr-only">Filtrer par décision</span>
+            <select id="decision-filter"></select>
           </label>
           <label class="hide-low-field">
             <input id="hide-low-input" type="checkbox" checked>
@@ -815,7 +840,7 @@ function toCoordinate(value) {
 }
 
 function defaultDecisionFields() {
-  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
+  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "", note: "" };
 }
 
 function itemKey(item) {
@@ -830,7 +855,7 @@ function mergeDecision(oldItem, newItem) {
   const oldAt = oldItem?.decidedAt || "";
   const newAt = newItem?.decidedAt || "";
   const winner = oldAt > newAt ? oldItem : newItem;
-  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "" };
+  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "", note: winner.note ?? oldItem?.note ?? newItem?.note ?? "" };
 }
 
 function mergeItemLists(oldItems, newItems) {
@@ -1227,10 +1252,19 @@ function googleSearchUrl(item) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${item.name} ${item.commune}`.trim())}`;
 }
 
+// Fiche officielle (adresse, dirigeants, statut...) plutôt que la recherche Google : les deux
+// sont complémentaires, l'une donnant le déclaratif officiel, l'autre pouvant révéler un écart
+// avec l'activité réelle (site web, réseaux sociaux). L'URL accepte indifféremment SIRET, SIREN
+// ou numéro RNA sans slug de nom.
+function annuaireEntreprisesUrl(item) {
+  return `https://annuaire-entreprises.data.gouv.fr/entreprise/${encodeURIComponent(item.siret || item.siren || item.rna)}`;
+}
+
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
+  const { hideLow = false, decisionFilter = "", sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
+  if (decisionFilter) filtered = filtered.filter(item => item.decision === decisionFilter);
   filtered = sortItems(filtered, sortColumn, sortDirection);
   const { pageItems, currentPage, totalPages, total } = paginate(filtered, page, pageSize);
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
@@ -1258,11 +1292,11 @@ function render(state, query = "", options = {}) {
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name-row"><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a>${item.siret || item.siren || item.rna ? `<a class="annuaire-link" href="${annuaireEntreprisesUrl(item)}" target="_blank" rel="noopener noreferrer" aria-label="Fiche officielle de « ${escapeHtml(item.name)} » sur l'Annuaire des Entreprises (nouvel onglet)" title="Fiche officielle (Annuaire des Entreprises, nouvel onglet)">🏛</a>` : ""}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
-      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
+      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}<input type="text" class="note-input" data-key="${escapeHtml(itemKey(item))}" placeholder="Note (facultatif)" value="${escapeHtml(item.note || "")}" aria-label="Note pour ${escapeHtml(item.name)}"></td>
     </tr>`).join("");
   return { currentPage, mapItems: filtered };
 }
@@ -1280,7 +1314,7 @@ function timestampForFilename(date = new Date()) {
 }
 
 function exportCsv(items) {
-  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || ""])];
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le", "Note"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || "", item.note || ""])];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -1336,6 +1370,10 @@ if (typeof document !== "undefined") {
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");
   const hideLowInput = document.querySelector("#hide-low-input");
+  const decisionFilterInput = document.querySelector("#decision-filter");
+  if (decisionFilterInput) {
+    decisionFilterInput.innerHTML = `<option value="">Toutes les décisions</option>${DECISIONS.map(decision => `<option>${escapeHtml(decision)}</option>`).join("")}`;
+  }
   const departmentCheckboxes = document.querySelectorAll(".department-checkbox");
   const departmentSummary = document.querySelector("#department-summary");
   const prevPageButton = document.querySelector("#prev-page-button");
@@ -1414,7 +1452,7 @@ if (typeof document !== "undefined") {
   }
 
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, decisionFilter: decisionFilterInput ? decisionFilterInput.value : "", sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
     page = currentPage;
     lastMapItems = mapItems;
     updateMap(mapItemsForSelection());
@@ -1449,6 +1487,7 @@ if (typeof document !== "undefined") {
   renderNow();
 
   hideLowInput.addEventListener("change", () => { page = 1; renderNow(); });
+  if (decisionFilterInput) decisionFilterInput.addEventListener("change", () => { page = 1; renderNow(); });
   filterInput.addEventListener("input", () => { page = 1; renderNow(); });
   departmentCheckboxes.forEach(checkbox => {
     checkbox.addEventListener("change", () => {
@@ -1593,6 +1632,13 @@ if (typeof document !== "undefined") {
       // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
       updateMap(mapItemsForSelection());
       updateMapSelectionNote();
+      return;
+    }
+    if (event.target.matches(".note-input")) {
+      const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
+      if (!item) return;
+      item.note = event.target.value;
+      saveState(state);
       return;
     }
     if (!event.target.matches(".decision-select")) return;
