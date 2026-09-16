@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "./sport-keywords.js";
 import "./app.js";
 
-const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
+const { deduplicate, defaultSince, extractItems, isAfter, normalizeResult, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS } = globalThis.veilleSportsTestApi;
 
 test("defaultSince returns thirty days before the reference date", () => {
   assert.equal(defaultSince(new Date("2026-08-27T12:00:00Z")), "2026-07-28");
@@ -65,15 +65,21 @@ test("itemKey uses SIRET, falling back to a namespaced RNA number", () => {
 test("mergeDecision keeps whichever side has the most recent decidedAt", () => {
   const older = { decision: "À qualifier", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z" };
   const newer = { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" };
-  assert.deepEqual(mergeDecision(older, newer), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" });
-  assert.deepEqual(mergeDecision(newer, older), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" });
+  assert.deepEqual(mergeDecision(older, newer), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z", note: "" });
+  assert.deepEqual(mergeDecision(newer, older), { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z", note: "" });
 });
 
 test("mergeDecision treats a never-decided item as older than any real decision", () => {
   const undecided = { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
   const decided = { decision: "Déjà connu", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z" };
-  assert.deepEqual(mergeDecision(undecided, decided), decided);
-  assert.deepEqual(mergeDecision(decided, undecided), decided);
+  assert.deepEqual(mergeDecision(undecided, decided), { ...decided, note: "" });
+  assert.deepEqual(mergeDecision(decided, undecided), { ...decided, note: "" });
+});
+
+test("mergeDecision keeps a note even when the winning side never had one", () => {
+  const older = { decision: "À qualifier", decidedBy: "A", decidedAt: "2026-08-01T10:00:00Z", note: "RDV pris le 12/09" };
+  const newer = { decision: "À contrôler", decidedBy: "B", decidedAt: "2026-08-05T10:00:00Z" };
+  assert.equal(mergeDecision(older, newer).note, "RDV pris le 12/09");
 });
 
 test("mergeItemLists refreshes factual data from newItems but never loses a prior decision", () => {
@@ -119,6 +125,35 @@ test("geocodeCommune turns a BAN municipality match into lat/lon", async () => {
 test("geocodeCommune returns null when nothing matches", async () => {
   const fakeFetch = async () => ({ ok: true, json: async () => ({ features: [] }) });
   assert.equal(await geocodeCommune("Introuvable", "00000", fakeFetch), null);
+});
+
+test("routeDistance returns null without calling the API when fewer than 2 points", async () => {
+  let called = false;
+  const fakeFetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  assert.equal(await routeDistance([], fakeFetch), null);
+  assert.equal(await routeDistance([{ lat: 47.3, lon: 5.0 }], fakeFetch), null);
+  assert.equal(called, false);
+});
+
+test("routeDistance sends start/end and pipe-separated intermediates in point order", async () => {
+  let requestedUrl = "";
+  const fakeFetch = async url => {
+    requestedUrl = url;
+    return { ok: true, json: async () => ({ distance: 42.5, duration: 55 }) };
+  };
+  const points = [{ lat: 47.32, lon: 5.04 }, { lat: 47.02, lon: 4.83 }, { lat: 46.93, lon: 4.36 }];
+  const result = await routeDistance(points, fakeFetch);
+  assert.deepEqual(result, { distanceKm: 42.5, durationMin: 55 });
+  const params = new URL(requestedUrl).searchParams;
+  assert.equal(params.get("start"), "5.04,47.32");
+  assert.equal(params.get("end"), "4.36,46.93");
+  assert.equal(params.get("intermediates"), "4.83,47.02");
+});
+
+test("routeDistance returns null when the API responds without usable distance/duration", async () => {
+  const fakeFetch = async () => ({ ok: true, json: async () => ({ message: "erreur" }) });
+  const points = [{ lat: 47.32, lon: 5.04 }, { lat: 47.02, lon: 4.83 }];
+  assert.equal(await routeDistance(points, fakeFetch), null);
 });
 
 test("normalizes an association returned by the API", () => {

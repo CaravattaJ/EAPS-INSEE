@@ -46,6 +46,7 @@ const JOAFE_API_BASE = "https://journal-officiel-datadila.opendatasoft.com/api/e
 const JOAFE_PAGE_SIZE = 100;
 const JOAFE_SPORT_FAMILY_PREFIX = "11000/";
 const BAN_API_BASE = "https://api-adresse.data.gouv.fr/search/";
+const ROUTE_API_BASE = "https://data.geopf.fr/navigation/itineraire";
 const PAGE_SIZE = 25;
 const DEPARTMENTS = [
   { code: "21", label: "Côte-d'Or" },
@@ -103,7 +104,7 @@ function toCoordinate(value) {
 }
 
 function defaultDecisionFields() {
-  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "" };
+  return { decision: DECISIONS[0], decidedBy: "", decidedAt: "", note: "" };
 }
 
 function itemKey(item) {
@@ -118,7 +119,7 @@ function mergeDecision(oldItem, newItem) {
   const oldAt = oldItem?.decidedAt || "";
   const newAt = newItem?.decidedAt || "";
   const winner = oldAt > newAt ? oldItem : newItem;
-  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "" };
+  return { decision: winner.decision || DECISIONS[0], decidedBy: winner.decidedBy || "", decidedAt: winner.decidedAt || "", note: winner.note ?? oldItem?.note ?? newItem?.note ?? "" };
 }
 
 function mergeItemLists(oldItems, newItems) {
@@ -468,6 +469,33 @@ async function geocodeCommune(commune, postalCode, fetchImplementation = fetch) 
   return { lat: toCoordinate(lat), lon: toCoordinate(lon) };
 }
 
+// Distance routière réelle (réseau BD TOPO de l'IGN), pas une distance à vol d'oiseau : bien
+// plus utile pour estimer un temps de tournée. L'itinéraire suit les points dans l'ordre donné
+// (ordre de sélection de l'agent) — l'API ne cherche pas le meilleur ordre de passage (ce
+// serait un problème d'optimisation de tournée à part entière).
+async function routeDistance(points, fetchImplementation = fetch) {
+  if (points.length < 2) return null;
+  const toLonLat = point => `${point.lon},${point.lat}`;
+  const params = new URLSearchParams({
+    resource: "bdtopo-osrm",
+    profile: "car",
+    optimization: "fastest",
+    distanceUnit: "kilometer",
+    timeUnit: "minute",
+    getSteps: "false",
+    getBbox: "false",
+    start: toLonLat(points[0]),
+    end: toLonLat(points[points.length - 1])
+  });
+  const intermediates = points.slice(1, -1);
+  if (intermediates.length) params.set("intermediates", intermediates.map(toLonLat).join("|"));
+  const response = await fetchImplementation(`${ROUTE_API_BASE}?${params}`);
+  if (!response.ok) return null;
+  const payload = await response.json();
+  if (typeof payload.distance !== "number" || typeof payload.duration !== "number") return null;
+  return { distanceKm: payload.distance, durationMin: payload.duration };
+}
+
 function paginate(items, page, pageSize = PAGE_SIZE) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
@@ -515,10 +543,19 @@ function googleSearchUrl(item) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${item.name} ${item.commune}`.trim())}`;
 }
 
+// Fiche officielle (adresse, dirigeants, statut...) plutôt que la recherche Google : les deux
+// sont complémentaires, l'une donnant le déclaratif officiel, l'autre pouvant révéler un écart
+// avec l'activité réelle (site web, réseaux sociaux). L'URL accepte indifféremment SIRET, SIREN
+// ou numéro RNA sans slug de nom.
+function annuaireEntreprisesUrl(item) {
+  return `https://annuaire-entreprises.data.gouv.fr/entreprise/${encodeURIComponent(item.siret || item.siren || item.rna)}`;
+}
+
 function render(state, query = "", options = {}) {
-  const { hideLow = false, sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
+  const { hideLow = false, decisionFilter = "", sortColumn = null, sortDirection = "asc", page = 1, pageSize = PAGE_SIZE, selectedKeys = new Set(), rnaWarningDismissed = false } = options;
   let filtered = state.items.filter(item => [item.name, item.commune, item.siret, item.rna, item.activity, item.activityLabel, item.object].join(" ").toLowerCase().includes(query.toLowerCase()));
   if (hideLow) filtered = filtered.filter(item => item.priority !== "Faible");
+  if (decisionFilter) filtered = filtered.filter(item => item.decision === decisionFilter);
   filtered = sortItems(filtered, sortColumn, sortDirection);
   const { pageItems, currentPage, totalPages, total } = paginate(filtered, page, pageSize);
   document.querySelector("#last-sync").textContent = state.lastSync ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.lastSync)) : "Jamais";
@@ -546,11 +583,11 @@ function render(state, query = "", options = {}) {
     <tr>
       <td class="map-select-cell"><input type="checkbox" class="map-select-checkbox" data-key="${escapeHtml(itemKey(item))}" aria-label="Afficher ${escapeHtml(item.name)} sur la carte"${selectedKeys.has(itemKey(item)) ? " checked" : ""}${typeof item.lat === "number" && typeof item.lon === "number" ? "" : " disabled"}></td>
       <td><span class="priority ${priorityClass(item.priority)}">${escapeHtml(item.priority)}</span></td>
-      <td><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
+      <td><span class="structure-name-row"><a class="structure-name" href="${googleSearchUrl(item)}" target="_blank" rel="noopener noreferrer" title="Rechercher « ${escapeHtml(item.name)} » sur Google (nouvel onglet)">${escapeHtml(item.name)}</a>${item.siret || item.siren || item.rna ? `<a class="annuaire-link" href="${annuaireEntreprisesUrl(item)}" target="_blank" rel="noopener noreferrer" aria-label="Fiche officielle de « ${escapeHtml(item.name)} » sur l'Annuaire des Entreprises (nouvel onglet)" title="Fiche officielle (Annuaire des Entreprises, nouvel onglet)">🏛</a>` : ""}</span><span class="identifier">${item.source === "RNA" ? "Association (fichier RNA)" : item.source === "JOAFE" ? "Association (Journal officiel)" : item.association ? "Association" : "Établissement"}${item.siret ? ` · SIRET ${escapeHtml(item.siret)}` : ""}${item.rna ? ` · RNA ${escapeHtml(item.rna)}` : ""}</span>${item.activityLabel ? `<br><span class="identifier">${escapeHtml(item.activityLabel)}</span>` : ""}${item.object ? `<br><span class="identifier">${escapeHtml(item.object)}</span>` : ""}${item.reason ? `<br><span class="identifier">${escapeHtml(item.reason)}</span>` : ""}${item.possibleDuplicateOf ? `<br><span class="duplicate-flag">⚠ Peut-être déjà vue ailleurs — voir aussi ${escapeHtml(item.possibleDuplicateOf)}</span>` : ""}</td>
       <td>${escapeHtml(item.commune)}<br><span class="identifier">${escapeHtml(item.postalCode)}</span></td>
       <td class="activity-cell" title="${escapeHtml(item.activityLabel || item.activity)}">${escapeHtml(item.activity)}</td>
       <td>${formatDate(item.creationDate)}${isFutureDate(item.creationDate) ? '<br><span class="future-flag">Date à venir — pas encore en activité</span>' : ""}</td>
-      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}</td>
+      <td><select class="decision-select" data-key="${escapeHtml(itemKey(item))}" aria-label="Décision pour ${escapeHtml(item.name)}">${DECISIONS.map(decision => `<option${decision === item.decision ? " selected" : ""}>${escapeHtml(decision)}</option>`).join("")}</select>${item.decidedBy ? `<br><span class="identifier">Par ${escapeHtml(item.decidedBy)} le ${formatDate(item.decidedAt)}</span>` : ""}<input type="text" class="note-input" data-key="${escapeHtml(itemKey(item))}" placeholder="Note (facultatif)" value="${escapeHtml(item.note || "")}" aria-label="Note pour ${escapeHtml(item.name)}"></td>
     </tr>`).join("");
   return { currentPage, mapItems: filtered };
 }
@@ -568,7 +605,7 @@ function timestampForFilename(date = new Date()) {
 }
 
 function exportCsv(items) {
-  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || ""])];
+  const rows = [["Niveau de confiance", "Source", "Type", "Nom", "SIRET", "RNA", "Commune", "Code postal", "Activité", "Description", "Motif", "Date de création", "Décision", "Décidée par", "Décidée le", "Note"], ...items.map(item => [item.priority, item.source || "Sirene", item.association ? "Association" : "Établissement", item.name, item.siret, item.rna, item.commune, item.postalCode, item.activityLabel || item.activity, item.object || "", item.reason || "", item.creationDate, item.decision, item.decidedBy || "", item.decidedAt || "", item.note || ""])];
   const csv = rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -581,7 +618,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
 });
 
 function readSelectedDepartments(checkboxes) {
@@ -624,6 +661,10 @@ if (typeof document !== "undefined") {
   const sinceInput = document.querySelector("#since-input");
   const filterInput = document.querySelector("#filter-input");
   const hideLowInput = document.querySelector("#hide-low-input");
+  const decisionFilterInput = document.querySelector("#decision-filter");
+  if (decisionFilterInput) {
+    decisionFilterInput.innerHTML = `<option value="">Toutes les décisions</option>${DECISIONS.map(decision => `<option>${escapeHtml(decision)}</option>`).join("")}`;
+  }
   const departmentCheckboxes = document.querySelectorAll(".department-checkbox");
   const departmentSummary = document.querySelector("#department-summary");
   const prevPageButton = document.querySelector("#prev-page-button");
@@ -635,6 +676,10 @@ if (typeof document !== "undefined") {
   // un ensemble vide signifie "aucune sélection", donc la carte affiche tous les résultats filtrés.
   let selectedKeys = new Set();
   let lastMapItems = [];
+  // Incrémenté à chaque appel à updateRouteDistance : permet d'ignorer la réponse d'un appel
+  // à l'API d'itinéraire devenu obsolète (sélection changée entre-temps) plutôt que de laisser
+  // une réponse arrivée en retard écraser un résultat plus récent.
+  let routeRequestId = 0;
   // Fermeture manuelle de l'alerte RNA (voir bouton #dismiss-rna-warning) : ne persiste pas
   // d'une session à l'autre, seulement le temps de ne pas re-harceler l'agent qui l'a lue.
   let rnaWarningDismissed = false;
@@ -701,8 +746,48 @@ if (typeof document !== "undefined") {
     }
   }
 
+  // Sélection dans l'ordre de coche (Set préserve l'ordre d'insertion), lues depuis
+  // state.items plutôt que lastMapItems : une structure cochée doit rester utilisable pour le
+  // trajet même si elle sort ensuite de la page ou du filtre affiché.
+  function selectedItemsInOrder() {
+    return [...selectedKeys]
+      .map(key => state.items.find(item => itemKey(item) === key))
+      .filter(item => item && typeof item.lat === "number" && typeof item.lon === "number");
+  }
+
+  async function updateRouteDistance() {
+    const card = document.querySelector("#route-distance-card");
+    const hint = document.querySelector("#route-distance-hint");
+    const valueEl = document.querySelector("#route-distance-value");
+    const subEl = document.querySelector("#route-distance-sub");
+    if (!card || !hint || !valueEl || !subEl) return;
+    const points = selectedItemsInOrder();
+    const requestId = ++routeRequestId;
+    if (points.length < 2) {
+      card.hidden = true;
+      hint.hidden = false;
+      return;
+    }
+    hint.hidden = true;
+    card.hidden = false;
+    valueEl.textContent = "Calcul en cours…";
+    subEl.textContent = "";
+    let result = null;
+    try {
+      result = await routeDistance(points);
+    } catch { /* réseau indisponible ou service en erreur : traité comme une absence de résultat */ }
+    if (requestId !== routeRequestId) return;
+    if (!result) {
+      valueEl.textContent = "Indisponible";
+      subEl.textContent = "Le service de calcul d'itinéraire de l'IGN n'a pas répondu — réessayez plus tard.";
+      return;
+    }
+    valueEl.textContent = `${result.distanceKm.toFixed(1)} km`;
+    subEl.textContent = `${points.length} structures, dans l'ordre où vous les avez cochées. ${formatDuration(result.durationMin * 60000)} de route estimé — distance routière réelle (réseau IGN), pas forcément le trajet le plus court.`;
+  }
+
   const renderNow = () => {
-    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
+    const { currentPage, mapItems } = render(state, filterInput.value, { hideLow: hideLowInput.checked, decisionFilter: decisionFilterInput ? decisionFilterInput.value : "", sortColumn, sortDirection, page, selectedKeys, rnaWarningDismissed });
     page = currentPage;
     lastMapItems = mapItems;
     updateMap(mapItemsForSelection());
@@ -737,6 +822,7 @@ if (typeof document !== "undefined") {
   renderNow();
 
   hideLowInput.addEventListener("change", () => { page = 1; renderNow(); });
+  if (decisionFilterInput) decisionFilterInput.addEventListener("change", () => { page = 1; renderNow(); });
   filterInput.addEventListener("input", () => { page = 1; renderNow(); });
   departmentCheckboxes.forEach(checkbox => {
     checkbox.addEventListener("change", () => {
@@ -881,6 +967,14 @@ if (typeof document !== "undefined") {
       // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
       updateMap(mapItemsForSelection());
       updateMapSelectionNote();
+      updateRouteDistance();
+      return;
+    }
+    if (event.target.matches(".note-input")) {
+      const item = state.items.find(candidate => itemKey(candidate) === event.target.dataset.key);
+      if (!item) return;
+      item.note = event.target.value;
+      saveState(state);
       return;
     }
     if (!event.target.matches(".decision-select")) return;
@@ -899,6 +993,7 @@ if (typeof document !== "undefined") {
     document.querySelectorAll(".map-select-checkbox").forEach(checkbox => { checkbox.checked = false; });
     updateMap(mapItemsForSelection());
     updateMapSelectionNote();
+    updateRouteDistance();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
@@ -946,6 +1041,7 @@ if (typeof document !== "undefined") {
       selectedKeys.clear();
       page = 1;
       renderNow();
+      updateRouteDistance();
       showMessage("Données locales réinitialisées. Rechargez le fichier partagé si besoin pour les récupérer.");
     });
   }

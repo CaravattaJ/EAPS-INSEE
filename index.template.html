@@ -132,7 +132,11 @@
           </ul>
         </div>
         <ul class="help">
-          <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour vérifier rapidement de quoi il s'agit avant de qualifier.</li>
+          <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour repérer un écart entre le déclaratif officiel et l'activité réellement visible (site, réseaux sociaux...).</li>
+          <li>L'icône 🏛 à côté du nom ouvre la fiche officielle de la structure sur l'Annuaire des Entreprises (adresse, dirigeants, statut) — complémentaire à la recherche Google, pas un remplacement.</li>
+          <li>Utilisez le filtre « Toutes les décisions » au-dessus du tableau pour n'afficher que les structures encore à qualifier, ou au contraire un statut précis déjà traité.</li>
+          <li>Un champ de note libre est disponible sous chaque décision, pour garder un contexte (rendez-vous pris, doute à vérifier...) visible par toute l'équipe.</li>
+          <li>En cochant au moins deux structures sur la carte, un bloc sous celle-ci affiche le kilométrage routier estimé du trajet entre elles, dans l'ordre où vous les cochez (pas nécessairement le plus court) — pratique pour préparer une tournée de contrôle.</li>
           <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant les mots-clés lié au sport voir fichier (sports-keywords.js).</li>
           <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
@@ -153,6 +157,10 @@
           <label class="search-field">
             <span class="sr-only">Filtrer la liste</span>
             <input id="filter-input" type="search" placeholder="Nom, commune, SIRET…">
+          </label>
+          <label class="decision-filter-field">
+            <span class="sr-only">Filtrer par décision</span>
+            <select id="decision-filter"></select>
           </label>
           <label class="hide-low-field">
             <input id="hide-low-input" type="checkbox" checked>
@@ -210,6 +218,12 @@
       <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance. Cochez des lignes dans le tableau (première colonne) pour n'afficher qu'une sélection.</p>
       <p id="map-selection-note" class="help" hidden></p>
       <div id="map"></div>
+      <div id="route-distance-card" class="metric route-distance-card" hidden>
+        <span class="metric-label">Trajet estimé (structures cochées)</span>
+        <strong id="route-distance-value">—</strong>
+        <span id="route-distance-sub" class="metric-sub"></span>
+      </div>
+      <p id="route-distance-hint" class="help">Cochez au moins deux structures sur la carte (première colonne du tableau) pour estimer la distance routière du trajet entre elles, dans l'ordre où vous les cochez.</p>
     </aside>
   </main>
 
