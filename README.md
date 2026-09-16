@@ -1,6 +1,6 @@
-# Veille Sports 21
+# Veille Sports BFC
 
-Prototype sans installation et sans dépendance npm pour repérer les établissements sportifs récemment créés en Côte-d'Or.
+Prototype sans installation et sans dépendance npm pour repérer les établissements sportifs récemment créés en Bourgogne-Franche-Comté.
 
 ## Lancer l'application
 
