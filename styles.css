@@ -379,6 +379,9 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
 .map-column-header .eyebrow { color: var(--volt); }
 .map-column-header h2 { margin: 4px 0 0; font-size: 1.1rem; }
 #map { flex: 1 1 auto; min-height: 420px; border-radius: 8px; border: 1px solid var(--border); }
+.route-distance-card { flex-shrink: 0; padding: 14px 16px; border-radius: 8px; background: var(--surface-sunken); }
+.route-distance-card .metric-label { margin-bottom: 5px; }
+.route-distance-card strong { font-size: 1.2rem; }
 
 .department-dropdown { position: relative; max-width: 280px; }
 .department-dropdown summary {

@@ -392,6 +392,9 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
 .map-column-header .eyebrow { color: var(--volt); }
 .map-column-header h2 { margin: 4px 0 0; font-size: 1.1rem; }
 #map { flex: 1 1 auto; min-height: 420px; border-radius: 8px; border: 1px solid var(--border); }
+.route-distance-card { flex-shrink: 0; padding: 14px 16px; border-radius: 8px; background: var(--surface-sunken); }
+.route-distance-card .metric-label { margin-bottom: 5px; }
+.route-distance-card strong { font-size: 1.2rem; }
 
 .department-dropdown { position: relative; max-width: 280px; }
 .department-dropdown summary {
@@ -594,6 +597,7 @@ footer a:hover { color: var(--electric); }
           <li>L'icône 🏛 à côté du nom ouvre la fiche officielle de la structure sur l'Annuaire des Entreprises (adresse, dirigeants, statut) — complémentaire à la recherche Google, pas un remplacement.</li>
           <li>Utilisez le filtre « Toutes les décisions » au-dessus du tableau pour n'afficher que les structures encore à qualifier, ou au contraire un statut précis déjà traité.</li>
           <li>Un champ de note libre est disponible sous chaque décision, pour garder un contexte (rendez-vous pris, doute à vérifier...) visible par toute l'équipe.</li>
+          <li>En cochant au moins deux structures sur la carte, un bloc sous celle-ci affiche le kilométrage routier estimé du trajet entre elles, dans l'ordre où vous les cochez (pas nécessairement le plus court) — pratique pour préparer une tournée de contrôle.</li>
           <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant les mots-clés lié au sport voir fichier (sports-keywords.js).</li>
           <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
@@ -675,6 +679,12 @@ footer a:hover { color: var(--electric); }
       <p class="help">Les structures sans position connue n'apparaissent pas. La couleur des points suit le niveau de confiance. Cochez des lignes dans le tableau (première colonne) pour n'afficher qu'une sélection.</p>
       <p id="map-selection-note" class="help" hidden></p>
       <div id="map"></div>
+      <div id="route-distance-card" class="metric route-distance-card" hidden>
+        <span class="metric-label">Trajet estimé (structures cochées)</span>
+        <strong id="route-distance-value">—</strong>
+        <span id="route-distance-sub" class="metric-sub"></span>
+      </div>
+      <p id="route-distance-hint" class="help">Cochez au moins deux structures sur la carte (première colonne du tableau) pour estimer la distance routière du trajet entre elles, dans l'ordre où vous les cochez.</p>
     </aside>
   </main>
 
@@ -783,6 +793,7 @@ const JOAFE_API_BASE = "https://journal-officiel-datadila.opendatasoft.com/api/e
 const JOAFE_PAGE_SIZE = 100;
 const JOAFE_SPORT_FAMILY_PREFIX = "11000/";
 const BAN_API_BASE = "https://api-adresse.data.gouv.fr/search/";
+const ROUTE_API_BASE = "https://data.geopf.fr/navigation/itineraire";
 const PAGE_SIZE = 25;
 const DEPARTMENTS = [
   { code: "21", label: "Côte-d'Or" },
@@ -1205,6 +1216,33 @@ async function geocodeCommune(commune, postalCode, fetchImplementation = fetch) 
   return { lat: toCoordinate(lat), lon: toCoordinate(lon) };
 }
 
+// Distance routière réelle (réseau BD TOPO de l'IGN), pas une distance à vol d'oiseau : bien
+// plus utile pour estimer un temps de tournée. L'itinéraire suit les points dans l'ordre donné
+// (ordre de sélection de l'agent) — l'API ne cherche pas le meilleur ordre de passage (ce
+// serait un problème d'optimisation de tournée à part entière).
+async function routeDistance(points, fetchImplementation = fetch) {
+  if (points.length < 2) return null;
+  const toLonLat = point => `${point.lon},${point.lat}`;
+  const params = new URLSearchParams({
+    resource: "bdtopo-osrm",
+    profile: "car",
+    optimization: "fastest",
+    distanceUnit: "kilometer",
+    timeUnit: "minute",
+    getSteps: "false",
+    getBbox: "false",
+    start: toLonLat(points[0]),
+    end: toLonLat(points[points.length - 1])
+  });
+  const intermediates = points.slice(1, -1);
+  if (intermediates.length) params.set("intermediates", intermediates.map(toLonLat).join("|"));
+  const response = await fetchImplementation(`${ROUTE_API_BASE}?${params}`);
+  if (!response.ok) return null;
+  const payload = await response.json();
+  if (typeof payload.distance !== "number" || typeof payload.duration !== "number") return null;
+  return { distanceKm: payload.distance, durationMin: payload.duration };
+}
+
 function paginate(items, page, pageSize = PAGE_SIZE) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
@@ -1327,7 +1365,7 @@ function exportCsv(items) {
 // globalThis conserve un script classique compatible avec une ouverture file://,
 // tout en permettant aux tests Node.js de vérifier la logique sans la dupliquer.
 Object.assign(globalThis, {
-  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
+  veilleSportsTestApi: { defaultSince, isAfter, normalizeResult, extractItems, deduplicate, requestWithRetry, parseDelimited, findSportKeywords, extractRnaItems, priorityForCode, flagProbableDuplicates, markKeywordFallback, daysSince, isFutureDate, normalizeJoafeRecord, sortItems, isInDepartments, departmentsLabel, paginate, joafeWhereClause, geocodeCommune, routeDistance, DEPARTMENTS, formatDuration, CONFIRM_THRESHOLD_PAGES, ESTIMATED_MS_PER_PAGE, mergeItemLists, mergeDecision, itemKey, DECISIONS }
 });
 
 function readSelectedDepartments(checkboxes) {
@@ -1385,6 +1423,10 @@ if (typeof document !== "undefined") {
   // un ensemble vide signifie "aucune sélection", donc la carte affiche tous les résultats filtrés.
   let selectedKeys = new Set();
   let lastMapItems = [];
+  // Incrémenté à chaque appel à updateRouteDistance : permet d'ignorer la réponse d'un appel
+  // à l'API d'itinéraire devenu obsolète (sélection changée entre-temps) plutôt que de laisser
+  // une réponse arrivée en retard écraser un résultat plus récent.
+  let routeRequestId = 0;
   // Fermeture manuelle de l'alerte RNA (voir bouton #dismiss-rna-warning) : ne persiste pas
   // d'une session à l'autre, seulement le temps de ne pas re-harceler l'agent qui l'a lue.
   let rnaWarningDismissed = false;
@@ -1449,6 +1491,46 @@ if (typeof document !== "undefined") {
       note.hidden = true;
       note.innerHTML = "";
     }
+  }
+
+  // Sélection dans l'ordre de coche (Set préserve l'ordre d'insertion), lues depuis
+  // state.items plutôt que lastMapItems : une structure cochée doit rester utilisable pour le
+  // trajet même si elle sort ensuite de la page ou du filtre affiché.
+  function selectedItemsInOrder() {
+    return [...selectedKeys]
+      .map(key => state.items.find(item => itemKey(item) === key))
+      .filter(item => item && typeof item.lat === "number" && typeof item.lon === "number");
+  }
+
+  async function updateRouteDistance() {
+    const card = document.querySelector("#route-distance-card");
+    const hint = document.querySelector("#route-distance-hint");
+    const valueEl = document.querySelector("#route-distance-value");
+    const subEl = document.querySelector("#route-distance-sub");
+    if (!card || !hint || !valueEl || !subEl) return;
+    const points = selectedItemsInOrder();
+    const requestId = ++routeRequestId;
+    if (points.length < 2) {
+      card.hidden = true;
+      hint.hidden = false;
+      return;
+    }
+    hint.hidden = true;
+    card.hidden = false;
+    valueEl.textContent = "Calcul en cours…";
+    subEl.textContent = "";
+    let result = null;
+    try {
+      result = await routeDistance(points);
+    } catch { /* réseau indisponible ou service en erreur : traité comme une absence de résultat */ }
+    if (requestId !== routeRequestId) return;
+    if (!result) {
+      valueEl.textContent = "Indisponible";
+      subEl.textContent = "Le service de calcul d'itinéraire de l'IGN n'a pas répondu — réessayez plus tard.";
+      return;
+    }
+    valueEl.textContent = `${result.distanceKm.toFixed(1)} km`;
+    subEl.textContent = `${points.length} structures, dans l'ordre où vous les avez cochées. ${formatDuration(result.durationMin * 60000)} de route estimé — distance routière réelle (réseau IGN), pas forcément le trajet le plus court.`;
   }
 
   const renderNow = () => {
@@ -1632,6 +1714,7 @@ if (typeof document !== "undefined") {
       // cases à cocher de la page en cours (innerHTML est régénéré à chaque renderNow).
       updateMap(mapItemsForSelection());
       updateMapSelectionNote();
+      updateRouteDistance();
       return;
     }
     if (event.target.matches(".note-input")) {
@@ -1657,6 +1740,7 @@ if (typeof document !== "undefined") {
     document.querySelectorAll(".map-select-checkbox").forEach(checkbox => { checkbox.checked = false; });
     updateMap(mapItemsForSelection());
     updateMapSelectionNote();
+    updateRouteDistance();
   });
 
   document.querySelector("#load-shared-button").addEventListener("click", () => document.querySelector("#shared-input").click());
@@ -1704,6 +1788,7 @@ if (typeof document !== "undefined") {
       selectedKeys.clear();
       page = 1;
       renderNow();
+      updateRouteDistance();
       showMessage("Données locales réinitialisées. Rechargez le fichier partagé si besoin pour les récupérer.");
     });
   }

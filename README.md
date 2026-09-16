@@ -135,6 +135,8 @@ Une carte (fond IGN via la Géoplateforme, service public gratuit et sans clé �
 
 Une structure sans position connue (échec de géolocalisation, commune non reconnue) n'apparaît simplement pas sur la carte — elle reste visible normalement dans le tableau.
 
+En cochant au moins deux structures (case à cocher, première colonne du tableau), un bloc apparaît sous la carte avec une estimation du trajet routier entre elles, via l'**API de calcul d'itinéraire de la Géoplateforme** (même domaine `data.geopf.fr` que le fond de carte, service public gratuit et sans clé, réseau routier BD TOPO® de l'IGN). Le trajet suit les structures dans l'**ordre où elles sont cochées** — l'application ne cherche pas le meilleur ordre de passage (optimisation de tournée), c'est à l'agent de cocher dans l'ordre de visite prévu. La distance est réelle (routière), pas à vol d'oiseau, mais reste approximative quand la position d'une structure est elle-même approximative (centre de commune, voir ci-dessus).
+
 ### Pagination
 
 Le tableau affiche 25 résultats par page, avec des boutons Précédent/Suivant et un indicateur de page sous le tableau. Changer le filtre, le tri, la case « Masquer les « Faible » » ou relancer une recherche/un import ramène automatiquement à la première page.
