@@ -446,10 +446,10 @@ footer a:hover { color: var(--electric); }
 </head>
 <body>
   <header class="topbar">
-    <div class="brand-mark" aria-hidden="true">21</div>
+    <div class="brand-mark" aria-hidden="true">BFC</div>
     <div>
-      <p class="eyebrow">Service de contrôle</p>
-      <h1>Veille Sports 21</h1>
+      <p class="eyebrow">Service de recherche</p>
+      <h1>Veille Sports BFC</h1>
     </div>
     <div class="topbar-actions">
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Basculer entre thème clair et thème sombre">
@@ -463,7 +463,7 @@ footer a:hover { color: var(--electric); }
     <div class="primary-column">
     <section class="hero card">
       <div class="hero-photo">
-        <p class="eyebrow">Côte-d'Or</p>
+        <p class="eyebrow">BOURGOGNE-FRANCHE-COMTÉ</p>
         <h2>Repérer les nouvelles structures sportives</h2>
         <p class="hero-copy">Trouvez les établissements et associations sportives récemment créés.</p>
       </div>
@@ -494,8 +494,8 @@ footer a:hover { color: var(--electric); }
           <button id="search-button" class="primary-button" type="button">
             <span aria-hidden="true">↻</span> Rechercher
           </button>
-          <button id="load-shared-button" class="accent-button" type="button">Charger les données</button>
-          <button id="save-shared-button" class="accent-button" type="button">Enregistrer les données</button>
+          <button id="load-shared-button" class="accent-button" type="button">Charger</button>
+          <button id="save-shared-button" class="accent-button" type="button">Enregistrer</button>
           <input id="shared-input" class="sr-only" type="file" accept=".json,application/json">
           <button id="rna-button" class="secondary-button" type="button">Importer RNA</button>
           <button id="export-button" class="secondary-button" type="button">Exporter en CSV</button>
@@ -520,28 +520,24 @@ footer a:hover { color: var(--electric); }
       </article>
     </section>
 
-    <section id="stale-sync-warning" class="message error" hidden role="status">Aucune recherche depuis plus de 10 jours — relancez-la pour ne rien manquer.</section>
-    <section id="stale-rna-warning" class="message error dismissible" hidden role="status">
-      <span>Fichier RNA non réimporté depuis plus de 10 jours.</span>
-      <button type="button" id="dismiss-rna-warning" class="dismiss-button" aria-label="Fermer cette information">×</button>
-    </section>
+    <section id="stale-sync-warning" class="message error" hidden role="status">Aucune recherche depuis plus de 10 jours</section>
     <section id="message" class="message" hidden role="status"></section>
 
     <details class="card secondary-block">
       <summary><p class="eyebrow">Aide</p> Confiance &amp; fonctionnement</summary>
       <div class="secondary-block-body">
         <div class="methodology">
-          <p class="help methodology-title"><strong>Méthodologie conseillée</strong></p>
+          <p class="help methodology-title"><strong>Méthodologie conseillée </strong></p>
           <ol class="help">
-            <li>En début de session, cliquez sur <strong>« Charger les données »</strong> et sélectionnez le fichier dans le dossier <code>sauvegarde</code> (à côté d'<code>index.html</code>) pour repartir des dernières décisions de l'équipe.</li>
-            <li>Laissez la date proposée par défaut avant de cliquer sur <strong>« Rechercher »</strong> — elle recule volontairement de quelques jours par rapport à votre dernière recherche, pour ne pas manquer une structure publiée en retard par l'administration.</li>
+            <li>En début de session, cliquez sur <strong>« Charger »</strong> et sélectionnez le fichier dans le dossier <strong>sauvegarde</strong> (à côté d'<code>index.html</code>) pour repartir des dernières décisions de l'équipe.</li>
+            <li>Faites une nouvelle recherche en cliquant sur <strong>« Rechercher »</strong> ci nécéssaire</li>
             <li>Qualifiez les nouvelles structures détectées (colonne Décision).</li>
-            <li>En fin de session, ou après un lot de décisions, cliquez sur <strong>« Enregistrer les données »</strong> puis placez le fichier téléchargé dans le dossier <code>sauvegarde</code> (en écrasant l'ancien), pour partager votre travail avec l'équipe.</li>
-            <li>Une fois par mois environ, relancez une recherche sur une période plus large (60 à 90 jours, en reculant la date à la main) et importez un export RNA à jour (bouton <strong>« Importer RNA »</strong>) pour rattraper d'éventuelles structures encore non détectées.</li>
+            <li>En fin de session, cliquez sur <strong>« Enregistrer »</strong> puis placez le fichier téléchargé dans le dossier <strong>sauvegarde</strong> (en écrasant l'ancien), pour partager votre travail avec l'équipe.</li>
+            <li>Une fois par mois environ, relancez une recherche sur une période plus large (60 à 90 jours, en reculant la date) et importez un export RNA à jour (bouton <strong>« Importer RNA »</strong>) pour rattraper d'éventuelles structures encore non détectées en croisant les données.</li>
           </ol>
         </div>
         <div class="confidence-note" aria-labelledby="confidence-title">
-          <p id="confidence-title">Niveau de confiance : un indice automatique, pas une décision de contrôle&nbsp;:</p>
+          <p id="confidence-title">Niveau de confiance : un indice automatique:</p>
           <ul>
             <li><span class="priority high">Élevée</span> activité ou objet directement sportif (club, installation, centre de culture physique...).</li>
             <li><span class="priority medium">Moyenne</span> enseignement sportif/loisir, ou mot-clé sportif dans le nom.</li>
@@ -562,14 +558,13 @@ footer a:hover { color: var(--electric); }
         </div>
         <ul class="help">
           <li>Cliquez sur le nom d'une structure pour lancer une recherche Google (nom + commune) dans un nouvel onglet — pratique pour vérifier rapidement de quoi il s'agit avant de qualifier.</li>
-          <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant « sport ».</li>
+          <li>En plus des codes d'activité sportive connus, une recherche complémentaire repère les noms contenant les mots-clés lié au sport voir fichier (sports-keywords.js).</li>
           <li>Les créations d'associations publiées au Journal officiel sont incluses automatiquement — l'import RNA est un complément facultatif.</li>
-          <li>Le site des entreprises ne permet pas de filtrer par date : une recherche longue (beaucoup de départements/codes) est donc estimée et confirmée avant de démarrer.</li>
           <li>Les doublons entre sources sont retirés automatiquement, et signalés quand ils ne peuvent pas l'être avec certitude.</li>
           <li>Le bouton clair/sombre en haut à droite change uniquement l'affichage, sans effet sur vos données.</li>
         </ul>
-        <p class="help">Utilisez <strong>« Charger les données »</strong> et <strong>« Enregistrer les données »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> dans le dossier <code>sauvegarde</code>, à côté d'<code>index.html</code> — un navigateur ne peut pas déposer un fichier téléchargé où que ce soit tout seul, il faut donc l'y glisser vous-même après chaque téléchargement. Si ce dossier est sur un espace réseau commun, c'est le moyen officiel de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après vos décisions. Le navigateur garde aussi une copie de secours sur ce poste, mais elle n'est pas partagée avec vos collègues et peut être vidée à tout moment : ne comptez que sur le fichier du dossier <code>sauvegarde</code>.</p>
-        <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données locales</button>
+        <p class="help">Utilisez <strong>« Charger »</strong> et <strong>« Enregistrer »</strong> (en haut de page) pour ouvrir ou sauvegarder votre fichier <code>veille-sports-partage.json</code> dans le dossier <code>sauvegarde</code>. Si ce dossier est sur un espace réseau commun, c'est le meilleur moyen de conserver votre travail et de le partager avec vos collègues : chargez-le avant de commencer, enregistrez-le après votre travail.</p>
+        <button id="reset-button" class="secondary-button" type="button">Réinitialiser les données</button>
       </div>
     </details>
 
@@ -644,8 +639,8 @@ footer a:hover { color: var(--electric); }
   </main>
 
   <footer>
-    <span>Veille Sports 21 — prototype sans installation</span>
-    <span>Source : API Recherche d'entreprises</span>
+    <span>Veille Sports BFC</span>
+    <span>Conception sdjes 21</span>
     <span>Bannière : <a href="https://www.magnific.com" target="_blank" rel="noopener noreferrer">Designed by Magnific</a></span>
   </footer>
 
