@@ -392,6 +392,14 @@ tbody tr:has(.map-select-checkbox:checked) { background: var(--volt-pale); }
   gap: 10px;
   padding: 20px;
   max-height: calc(100vh - 40px);
+  /* Sur un écran bas (petit portable, fenêtre non maximisée), le contenu (carte + bloc trajet)
+     peut dépasser max-height : sans défilement propre à la colonne, ce contenu en trop restait
+     visuellement coincé (position:sticky l'empêche de défiler avec le reste de la page) et donc
+     inaccessible, notamment le bloc kilométrage sous la carte. overflow-y:auto donne à la colonne
+     son propre ascenseur dans ce cas, plutôt que de désactiver le "toujours visible" pour tout le
+     monde (la carte reste utile en survolant les résultats sur la plupart des écrans). */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-top: 4px solid var(--volt-strong);
 }
 .map-column-header .eyebrow { color: var(--volt); }
@@ -452,6 +460,19 @@ footer a { color: var(--muted); text-decoration: underline; text-underline-offse
 footer a:hover { color: var(--electric); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 
+/* Le tableau devient trop étroit pour ses colonnes fixes (colgroup en %, prévues pour
+   ~1180-1400px) avant même que la mise en page ne repasse en une seule colonne à 1000px : entre
+   1000px et ~1200px, elle reste à deux colonnes mais la carte (380px) lui laisse une largeur
+   réduite. Mesuré empiriquement (voir historique) : les en-têtes commencent à tronquer sous
+   1200px, et sans cette bascule, du texte se retrouvait coupé lettre par lettre au lieu de
+   passer à la ligne normalement. Ce seuil couvre donc à la fois la fin du mode deux colonnes et
+   tout le mode une colonne (voir bloc 1000px ci-dessous) avec le même traitement de tableau. */
+@media (max-width: 1200px) {
+  table { table-layout: auto; }
+  th, td { overflow-wrap: normal; }
+  .decision-select { width: auto; min-width: 140px; }
+}
+
 @media (max-width: 1000px) {
   main { grid-template-columns: 1fr; }
   .map-column { position: static; max-height: none; }
@@ -471,10 +492,6 @@ footer a:hover { color: var(--electric); }
   #map { height: 280px; }
   .pagination { flex-direction: column; gap: 10px; }
   .topbar-actions { margin-left: 0; }
-  /* En dessous de 760px, mieux vaut un tableau qui défile horizontalement (habituel sur
-     mobile) que des colonnes fixes trop étroites pour rester lisibles. */
-  table { table-layout: auto; }
-  .decision-select { width: auto; min-width: 140px; }
 }
 </style>
 </head>
